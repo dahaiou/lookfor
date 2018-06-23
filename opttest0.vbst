@@ -1,0 +1,153 @@
+' Test option handling in vbs functions
+
+' Option handling considerations:
+' Number of options: none, one, several, max number
+' Number of arguments after options: none, one, several, large number
+' option types: long, short, mixed eg. -abc --a-long-opt
+' option values (different ways to express)
+'       eg. -abc 34 -den=<name> -f <filename> --default-directory=/home
+' option values (different types):
+'   quoted strings, implicitg strings, empty strings, numbers, expressions(?), special chars
+
+' double dash -- marking end of options
+' removal of initial command token: none, one, several(should only remove first one)
+' initial command token format: first char a letter, next any alphanum or underscore
+' formatting: separate options: -a -b -c --long ... 
+' formatting: combined options: -abc ...
+' formatting: combined option error: -abc = Error if b requires optvalue
+'                                   ( correct: -ab <bvalue> -c OR -ab=<value> -c)
+' formatting: unspaced options: -a-b-c--long ... OR -ab=<bvalue>-c (error for this one)
+' "long" option consisting of single char eg. --a
+' error checking: strict, standard, relaxed
+' known/unknown opts
+' optvalues given/missing when required
+' optvalues given/missing when not required
+
+' TCase: What if cmd token is repeated somewhere in restline. Ensure only the first instance is removed
+' What about a single dash - ?
+
+
+' Issues blocking progress and creativity with the lookfor functionality:
+' =======================================================================
+' o log "forking" mechanisms for output to screen + logfile(s)?
+' o how to "lookfor" in the current "DEBUG" output of tgopts? will this format be definitive?
+' o "lookfor" mechanisms based on regex'es
+' o "lookfor" syntax in test files, simple as possible while powerful too
+' o in particular, syntax/ready-made function to make expected/received comparisons 
+'        with standardised error output, from simple one-liners in the test files
+' o mechanisms for choosing verbosity level in test output and logging
+'       also not same level for output and logging but individually selectable
+' o automatic generation of complete output/logging info on error only
+' x current "lookfor" function is misnamed, it's more like a "read-up-to-next-prompt"
+' o Naming: parent/child, master/slave or other? client/server?
+'   chief/indian, king/prince, king/subject, master/servant, detective/suspect
+'   operator/command server, tester/object, tester/testee, ...
+' o reading line-by-line from string eg. function sReadLine(str)
+' x startup command line args (ie. from dos cmd prompt) for setting the prompt string
+'   this naturally applies only to starting lookfor as slave to test itself
+' o mechanisms to change the child process prompt with just one command
+'   ie. with one command change both: a.) Child's prompt string, by command to child
+'   AND b.) prompt pattern used by Parent when reading from slave's stdout
+' x mechanism for identifying "child" output eg. beginning each output line with ">"
+' o handling child and parent pid (though unclear in what way it might be useful)
+' o general help message and help message for main commands
+' o continuous bookkeeping of how many and which TC's were executed/OK/failed
+
+
+'SpawnCliCmd "lookfor.bat 2>&1", "lookfor:>"
+
+'LookforSuppressPrompt = false
+'SlavePrompt = "child:>"
+'_setmyprompt "child:>"
+
+If SlaveExec Is Nothing Then: NewCmdLookfor: End If
+
+
+TCsendlogOn = True
+HideSlavePrompt = True
+
+' =================================================================================================
+. TestCase 0.00 Intro Messages
+' =================================================================================================
+say "Running Test number " & TCnum
+_.say Running Test: {TCnum} (YEEAAASS, name substitution is working NOW !!!)
+_.say Echoing 3*4 here: {3*4} (YEEAAASS, if you see 12, expr substitution is working too !!!)
+
+' =================================================================================================
+. TestCase 0.01 Simple case of "command -abc arg1 arg2"
+' =================================================================================================
+_ -l .tgopts mycmd -abc a1 a2 a3
+' =================================================================================================
+line4711=foundline
+subtestidx = 0
+' subtestnum = testnum & "." & inc(subtestidx)
+TCexpected = "Initial\s+restline\s*=\s*\'mycmd\s+-abc\s+a1\s+a2\s+a3\'"
+TCcheckResult Foundline, TCexpected        ' logs success or failure of regex comparison
+
+
+' If Lookfor(FoundLine, expected) = 1 Then
+' If Not TCsuccess Then
+'   ' <additional failure handling>... eg. detailed logging
+' End If
+' NOTE: The lines of code enclosed in <: "smiley birds" .> below:
+'       The "left smiley bird" <: must be first on the line (after trim)
+'       The "right smiley bird" :> must be last on the line (after trim)
+'   Such "smiley bird code" will be run at one go, and is not preprocessed,
+'   thus, must be pure VBScript (at the moment)
+
+a=2
+. say a is {a}
+<:
+  If a > 1 then
+      .say a is {a} which is > 1
+  ElseIf a = 1 then
+      say "a is = 1"
+  Else
+      say "a is < 1"
+  End If
+:>
+
+b=2
+. say b is {b}
+  If b > 1 then
+      .say b is {b} which is > 1
+  ElseIf b = 1 then
+      say "b is = 1"
+  Else
+      say "b is < 1"
+  End If
+
+
+' multiline starts on next line (provided no quotes between = and <)
+' NOTE: Line must end with "<+". Single-quote comments are not allowed
+' longstr= <+    ' this comment invalidates the possy-bird indicator
+
+' multiline starts with the quoted text present on this line
+' NOTE: Line must end with "<+". Single-quote comments are not allowed
+' longstr= "some initial text <+    ' this comment invalidates the possy-bird indicator
+
+' In this case the multiline starts with a newline (VBCrLf)
+' NOTE: Line must end with "<+". Single-quote comments are not allowed
+
+' End of possy-bird block is signalled by "+>" at END of line, 
+' It will even go undetected if followed by as much as a space
+
+longstr=<+  ' "here"
+This is a "here block" aka "here document" or just heredoc, {a} is a number just like {a} yeah
+This is similar to the "here document" in other langs, and it includes a nifty substitution feature 
+for expressions eg. if you calculate 3*4 you usually get {3*4} as a result.
+Now, to end the block you use the end-here-block marker "+>" at the end of a line,
+but it MUST be at the END of the line. If the marker is followed
+by as much as a single space character it will go undetected,
+which is exactly what happens here, at the end of this line: +> 
+and so the block just continues here on the next line
++>
+longstr= longstr & <+
+    This, however, is a continuation ...
+    AND: indenting, such as this line does seem to be working now.
+    and the text has "many" (maybe more than {a}) lines 
+apparently. But here, on the line below, it ends for real
++>  +>
+say longstr
+
+say "End of this test. More to come ..."

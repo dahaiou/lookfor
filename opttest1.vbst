@@ -1,0 +1,121 @@
+' Test option handling in vbs functions
+
+' Option handling considerations:
+' Number of options: none, one, several, max number
+' Number of arguments after options: none, one, several, large number
+' option types: long, short, mixed eg. -abc --a-long-opt
+' option values (different ways to express)
+'       eg. -abc 34 -den=<name> -f <filename> --default-directory=/home
+' option values (different types):
+'   quoted strings, implicitg strings, empty strings, numbers, expressions(?), special chars
+
+' double dash -- marking end of options
+' removal of initial command token: none, one, several(should only remove first one)
+' initial command token format: first char a letter, next any alphanum or underscore
+' formatting: separate options: -a -b -c --long ... 
+' formatting: combined options: -abc ...
+' formatting: combined option error: -abc = Error if b requires optvalue
+'                                   ( correct: -ab <bvalue> -c OR -ab=<value> -c)
+' formatting: unspaced options: -a-b-c--long ... OR -ab=<bvalue>-c (error for this one)
+' "long" option consisting of single char eg. --a
+' error checking: strict, standard, relaxed
+' known/unknown opts
+' optvalues given/missing when required
+' optvalues given/missing when not required
+
+' TCase: What if cmd token is repeated somewhere in restline. Ensure only the first instance is removed
+' What about a single dash - ?
+
+
+' Issues blocking progress and creativity with the lookfor functionality:
+' =======================================================================
+' o log "forking" mechanisms for output to screen + logfile(s)?
+' o how to "lookfor" in the current "DEBUG" output of tgopts? will this format be definitive?
+' o "lookfor" mechanisms based on regex'es
+' o "lookfor" syntax in test files, simple as possible while powerful too
+' o in particular, syntax/ready-made function to make expected/received comparisons 
+'        with standardised error output, from simple one-liners in the test files
+' o mechanisms for choosing verbosity level in test output and logging
+'       also not same level for output and logging but individually selectable
+' o automatic generation of complete output/logging info on error only
+' x current "lookfor" function is misnamed, it's more like a "read-up-to-next-prompt"
+' o Naming: parent/child, master/slave or other? client/server?
+'   chief/indian, king/prince, king/subject, master/servant, detective/suspect
+'   operator/command server, tester/object, tester/testee, ...
+' o reading line-by-line from string eg. function sReadLine(str)
+' x startup command line args (ie. from dos cmd prompt) for setting the prompt string
+'   this naturally applies only to starting lookfor as slave to test itself
+' o mechanisms to change the child process prompt with just one command
+'   ie. with one command change both: a.) Child's prompt string, by command to child
+'   AND b.) prompt pattern used by Parent when reading from slave's stdout
+' x mechanism for identifying "child" output eg. beginning each output line with ">"
+' o handling child and parent pid (though unclear in what way it might be useful)
+' o general help message and help message for main commands
+' o continuous bookkeeping of how many and which TC's were executed/OK/failed
+
+
+'SpawnCliCmd "lookfor.bat 2>&1", "lookfor:>"
+
+'LookforSuppressPrompt = false
+'SlavePrompt = "child:>"
+'_setmyprompt "child:>"
+
+If SlaveExec Is Nothing Then: NewCmdLookfor: End If
+
+
+TCsendlogOn = True
+HideSlavePrompt = True
+
+' =================================================================================================
+. TestCase 0.00 Intro Messages
+' =================================================================================================
+say "Running Test number " & TCnum
+_.say Running Test: {TCnum} (YEEAAASS, name substitution is working NOW !!!)
+_.say Echoing 3*4 here: {3*4} (YEEAAASS, if you see 12, expr substitution is working too !!!)
+
+' =================================================================================================
+. TestCase 0.01 Simple case of "command -abc arg1 arg2"
+' =================================================================================================
+_ .dbg add getopts ' Debug messages for getopts need to be turned on in slave process
+_ -l .tgopts mycmd -abc a1 a2 a3
+' =================================================================================================
+line4711=foundline
+subtestidx = 0
+' subtestnum = testnum & "." & inc(subtestidx)
+TCexpected = "Initial\s+restline\s*=\s*\'mycmd\s+-abc\s+a1\s+a2\s+a3\'"
+TCcheckResult Foundline, TCexpected        ' logs success or failure of regex comparison
+
+
+' If Lookfor(FoundLine, expected) = 1 Then
+' If Not TCsuccess Then
+'   ' <additional failure handling>... eg. detailed logging
+' End If
+
+' =================================================================================================
+. TestCase 0.02 Empty line to tgopts
+' =================================================================================================
+_ .dbg add getopts ' Debug messages for getopts need to be turned on in slave process
+_ -l tgopts ""
+' =================================================================================================
+
+subtestidx = 0
+' subtestnum = testnum & "." & inc(subtestidx)
+
+sayerr "Slave app returned: '" & FoundLine & "'"
+
+TCexpected = "Initial\s+restline\s*=\s*\'\'\s*\n"
+TCcheckResult Foundline, TCexpected        ' logs success or failure of regex comparison
+
+' =================================================================================================
+. TestCase 0.03 Empty line to getopts
+' =================================================================================================
+_ .dbg add getopts ' Debug messages for getopts need to be turned on in slave process
+	optstr = "abcde:f:x:z|good-times|parse-slowly:|a-good-opt:|"
+	opts_found = ""
+    cmdline = ""
+_ -l getopts optstr, cmdline, opts_found
+
+
+
+
+say "End of this test. More to come ..."

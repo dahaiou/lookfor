@@ -1,0 +1,19 @@
+
+' import "start_blawber.vbs"
+if not right(SlavePrompt,3) = ")>>" Then blawber
+'.help
+
+testnum = "0.1"
+say "Running Test number " & testnum
+./echo Running Test: {testnum} (YEEAAASS, name substitution is working NOW !!!)
+./echo Echoing 3*4 here: {3*4} (YEEAAASS, if you see 12, expr substitution is working too !!!)
+.setmem 0600 8A8A8A8A
+.showmem 0600 10
+expected="0600 | 8A 8A 8A 8A"
+if InStr(FoundLine, expected) = 1 then
+	say "Test " & testnum & " OK."
+else 
+	say "Test " & testnum & " FAILED."
+	say "Expected: " & expected
+	say "Received: " & FoundLine
+end if

@@ -1,0 +1,80 @@
+
+IncludeName = "TestCase.vbst"
+IncludeVersion = "0.06-01"
+inc1NameString = IncludeName & " V" & IncludeVersion
+say "Including: " & inc1NameString
+
+' ====================================================================================================
+'_h1 TC - TestCase funtions (for automated testing run from .vbst files)
+' ====================================================================================================
+'_h2 TC TestCase funtion globals
+' ====================================================================================================
+Dim TCnum, TCtitle, TCnumber2, TCtitle2, TCsendlogOn, TCechoOn, TCsuccess, TCexpected, TCremain
+ TCsendlogOn = False
+ TCechoOn = False
+ 
+ Dim oTCregx, oTCmatch
+ Set oTCregx  = Nothing
+ Set oTCmatch = Nothing
+ 
+ <:
+ '_h2 TestCase (s) - Start New TestCase: Reset relevant bookkeeping vars and announce in log output
+ ' ====================================================================================================
+ ' TODO: Consider "TestCaseNew" as name alternative(?)
+Sub TestCase (s)
+ 
+	' Decode opts and args
+	sArr = Split (Trim(s), " ", 2)
+
+	' Set data, Note these vars are all global, reflecting current test case and sub-case
+	TCnum     = sArr(0)
+	TCtitle   = sArr(1)
+	TCnumber2 = ""		' sub-number and -title
+	TCtitle2  = ""
+	' Log what's going on
+	TClog ""
+	TClog replace_args ("TestCase: {TCnum} {TCtitle}")
+	TClog "===================================================================================================="
+End Sub ' Sub TestCase (s)
+
+'_h2 TClog (s) - Write to TC log output ie. stdout and any outfiles defined
+' ====================================================================================================
+' TODO: Outfiles NIY, Also: control verbosity level with global variables
+Sub TClog (s)
+	say s
+	'NIY:write2logfile s
+End Sub ' Sub TClog (s)
+
+'_h2 TCcheckResult (line, expected) - Check result of TestCase, update bookkeeping and write log outputs
+' ====================================================================================================
+' TODO: ...
+Sub TCcheckResult (line, expected)
+	' Preparation
+	' saydbg "TCcheckResult enter"			' **** DEBUG
+	If oTCregx is Nothing then
+		Set oTCregx = New RegExp
+		oTCregx.global = true
+		oTCregx.ignorecase = false
+	End If
+
+	oTCregx.pattern = "(" & expected & ")([\s\S]*)"
+	'	saydbg "TCcheckResult about to execute pattern:" & "(" & expected & ")([\s\S]*)"			' **** DEBUG
+	Set oTCmatch = oTCregx.Execute(line)
+
+	
+	'	saydbg "Now checking if matched or not"			' **** DEBUG
+	' Now check if it matched or not
+	If oTCmatch.Count > 0 Then
+		TCsuccess = True
+		' Set TCremain to the (.*) part
+		max = oTCmatch(0).submatches.Count-1
+		TCremain = oTCmatch(0).submatches(max)
+		TClog replace_args ("Result: TC-{TCnum} OK")
+	Else
+		TCsuccess = False
+		TClog replace_args ("Result: TC-{TCnum} FAILED ********")
+
+	End If
+End Sub ' Sub TCcheckResult (line, expected)
+ :>
+

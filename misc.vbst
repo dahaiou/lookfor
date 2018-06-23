@@ -1,0 +1,106 @@
+IncludeName = "Misc.vbst"
+IncludeVersion = "0.06-01"
+inc1NameString = IncludeName & " V" & IncludeVersion
+say "Including: " & inc1NameString
+
+ set objItems = Nothing
+ set objItem = Nothing
+
+<:
+
+ '! https://stackoverflow.com/questions/41095060/how-to-get-running-application-name-by-vbscript
+ Sub ListProcessRunning()
+  'This function can report names from
+  'TaskManager -> Processes
+     sComputerName = "."
+     Set objWMIService = GetObject("winmgmts:\\" & sComputerName & "\root\cimv2")
+     sQuery = "SELECT * FROM Win32_Process"
+     Set objItems = objWMIService.ExecQuery(sQuery)
+     'iterate all item(s)
+     For Each objItem In objItems
+         WScript.Echo objItem.handle  & " " & objItem.parentprocessid  & " " & objItem.Name & " " & objItem.caption
+     Next
+End Sub
+
+'! https://books.google.es/books?id=h5pCAwAAQBAJ&pg=PT364&lpg=PT364&dq=vbs+run+sub+in+specific+namespace&source=bl&ots=pTAAIOFlS5&sig=0dbSi9ftRRSKXzEKBinXBv37Rh0&hl=en&sa=X&ved=0ahUKEwjqm43G4trbAhWrJsAKHXNmDXoQ6AEIRzAD#v=onepage&q=vbs%20run%20sub%20in%20specific%20namespace&f=false
+'! RecursiveList WMINamespaces.vbs
+Sub RListWNspaces()
+	say Now
+	strComputer = "."
+	Call EnumNamespaces ("root", strComputer)
+	say "All done " & Now
+End Sub ' Sub RListWNspaces()
+
+Sub EnumNamespaces(Nspace, Computer)
+	say Nspace
+	Set objSWbemServices = GetObject("winmgmts:\\" & Computer & "\" & Nspace)
+	Set colNspaces = objSWbemServices.InstancesOf ("__NAMESPACE")
+	For Each objNspace in colNspaces
+		' Say objNspace.Name&":"
+		On Error Resume Next
+		Err.Clear
+		myErr.Reset
+		Call EnumNamespaces (Nspace & "\" & objNspace.Name, Computer)
+		
+		Err_Number = Err.Number
+		If Err.Number <> 0 then
+			WScript.StdErr.WriteLine Trim(Err.Description & " (0x" & Hex(Err.Number) & ")")
+			myErr.Number = Err.Number
+			myErr.Description = Err.Description
+			myErr.Source = Err.Source
+			ErrArray = Array (Err.Number, Err.Description, Err.Source)
+		End If
+	
+		On Error Goto 0
+	
+	Next 
+End Sub ' Sub EnumNamespaces(Nspace)
+:>
+
+Responsable = " Mr. President  "
+
+<:
+'! Test function vSayLvarq, short vbsCodetoSayLocalVarq
+Sub funny (s)
+	Dim myvar, Gtest1, Responsable
+	myvar = "funny myvar"
+	Gtest1 = "funny test1"
+
+	Responsable = " Little Red Riding Hood  "
+	say VBCrLf&"simple say:"
+	say "Responsable="&Responsable
+
+	Responsable = " Little Red Riding Hood  "
+	say VBCrLf&"with sayvarq:"
+	sayvarq "Responsable"
+
+	say VBCrLf&"with manual text:"
+	say "Responsable='"&Responsable&"'"
+	
+	say VBCrLf&"with vSayLvarq:"
+	execute vSayLvarq ("Responsable")
+
+	Exit Sub
+	vname = "myvar"
+	say vname & "=" & eval(vname)
+	sayagain = replace_args("say vname & ""=""  & eval(vname)")
+
+	say "sayagain='"&sayagain&"'"
+
+	say "executing sayagain"
+	execute replace (sayagain, """""", """")
+	execute vSayLvar  ("myvar")
+	'execute locvarq ("myvar")
+
+	sayvarq "Gtest1"
+	execute vSayLvar ("Gtest1")
+	execute vSayLvarq ("Gtest1")
+	sayvarq "Gtest2"
+	say Gtest2
+	execute vSayLvar ("Gtest2")
+	execute vSayLvarq ("Gtest2")
+End Sub
+:>
+
+
+
