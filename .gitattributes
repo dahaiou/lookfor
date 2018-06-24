@@ -1,0 +1,8 @@
+
+static/* linguist-vendored
+docs/*   linguist-documentation
+
+*.vbs  linguist-language=VBScript
+*.vbst linguist-language=VBScript
+
+

@@ -75,6 +75,37 @@ Sub TCcheckResult (line, expected)
 		TClog replace_args ("Result: TC-{TCnum} FAILED ********")
 
 	End If
-End Sub ' Sub TCcheckResult (line, expected)
+ End Sub ' Sub TCcheckResult (line, expected)
+
+ Set dir = Getref("ls")
+
+ Sub ls (s)
+	Set FSO = CreateObject("Scripting.FileSystemObject")
+	Set objFolder = FSO.GetFolder(FSO.GetParentFolderName(WScript.ScriptFullName))
+	Set allFiles = objFolder.Files
+	For Each objFile in allFiles
+		Wscript.StdOut.Write objFile.Name & " "
+	Next
+	Wscript.StdOut.WriteLine ""
+ End Sub
+
+ Sub fpath (s)
+	Set fso = CreateObject("Scripting.FileSystemObject")
+ 	Set sh = CreateObject("WScript.Shell")
+
+	For Each d In Split(sh.ExpandEnvironmentStrings("%PATH%"), ";")
+		Wscript.StdOut.WriteLine d
+		' TODO: 
+		'		- Filter based on search string
+		'		- Check if dir exists and mark with asterisk * or something 
+		'		- Detect repeated items
+		'		- Functions to add and remove stuff (?)
+
+	Next
+ End Sub
+
+
+
+
  :>
 
