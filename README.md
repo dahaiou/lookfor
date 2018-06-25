@@ -1,0 +1,3 @@
+# lookfor
+Automated Test Scripting a la Expect, done in VBScript
+... watch this space ...
