@@ -176,15 +176,20 @@ getArgs
 '! Get command-line arguments (from the DOS/Win command line)
 '! =====================================================================================================
 Sub getArgs()
-	for each arg in wscript.arguments
-		if InStr (arg, "-P") = 1 then
+	For each arg in wscript.arguments
+		If InStr (arg, "-P") = 1 Then
 			p = Mid(arg, InStr(arg, "/") + 1)
 			'say "p="&p
-			p = Left(p, InStrRev(p, "/") - 1)
-			'say "p="&p
-			MyPrompt = p
-		end if
-	next
+			If InStrRev(p, "/") > 1 Then
+				p = Left(p, InStrRev(p, "/") - 1)
+				'say "p="&p
+				MyPrompt = p
+			End If
+		ElseIf InStr (arg, "-R") = 1 Then
+			p = Mid(arg, 3)
+			If len (p) > 1 Then MyPrompt = p
+		End If
+	Next
 End Sub 
 
 

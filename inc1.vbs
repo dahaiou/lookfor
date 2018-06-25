@@ -535,7 +535,9 @@ Sub getopts (optstr, ByRef cmdline, ByRef opts_found)
 	saydbg "@getopts Initial restline='" & restline & "'"
 
 	'oRegOpts.pattern = "^\s*([a-zA-Z]+\w*)?"				' Regex to remove initial command token, if any
-	oRegOpts.pattern = "^(\s*[^-\s][\S]*[\s]*)?"				' Regex to remove initial command token, if any
+'	oRegOpts.pattern = "^(\s*[^-\s][\S]*[\s]*)?"				' Regex to remove initial command token, if any
+'	oRegOpts.pattern = "^\s*([^-\s][\S]*)?\s*"				' Regex to remove initial command token, if any
+	oRegOpts.pattern = "^(\s*[^-\s][\S]*)?"				' Regex to remove initial command token, if any
 	' NOTE: cmd token = wspace plus ANY non-blank sequence that does NOT begin with dash plus trailing wspace
 	' anything up to first <-option> or second token whichever comes first
 
@@ -728,9 +730,12 @@ Sub getopts (optstr, ByRef cmdline, ByRef opts_found)
 	
 	loop while oMatch.Count > 0
 	
-	'saydbg "@getopts Result: ========================================="
-	'saydbg "@getopts opts_found  :" & opts_found
-	'saydbg "@getopts Rest of line:" & restline
+	'Remove one initial space from restline if present
+	If Instr (restline, " ") = 1 Then restline = Replace (restline, " ", "", 1, 1)
+	
+	saydbg "@getopts Result: ========================================="
+	saydbg "@getopts opts_found  :" & opts_found
+	saydbg "@getopts Rest of line:" & restline
 	
 	If len(opts_found) < 2 Then 
 		' Do nothing: No opts found, so DON'T CHANGE cmdline AT ALL

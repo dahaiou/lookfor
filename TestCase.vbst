@@ -13,6 +13,11 @@ Dim TCnum, TCtitle, TCnumber2, TCtitle2, TCsendlogOn, TCechoOn, TCsuccess, TCexp
  TCsendlogOn = False
  TCechoOn = False
  
+Dim aTCsh(), iTCshCount, aTCfs(), iTCfsCount		'! Array of Shell objects and File System Objects respectively
+iTCshCount = 0
+iTCfsCount = 0
+
+
  Dim oTCregx, oTCmatch
  Set oTCregx  = Nothing
  Set oTCmatch = Nothing
