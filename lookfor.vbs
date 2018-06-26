@@ -122,6 +122,17 @@ Version  = "0.06p_"				'_Version
 '		 
 '		 
 '		 
+'		 
+'		 
+'!@TODO:
+' o Standardised detection of whether ar slave app is active or not
+' o 
+' o mechanisms to change the child process prompt with just one command
+'   ie. with one command change both: a.) Child's prompt string, by command to child
+'   AND b.) prompt pattern used by Parent when reading from slave's stdout
+'		 
+'		 
+'		 
 ' ====================================================================================================
 ' ====================================================================================================
 
@@ -340,9 +351,6 @@ End Sub ' send(cmdline)
 ' TODO: When tested, move routines from inc1.vbs in here
 ' ==============================================================================
 import "inc1.vbs"
-RunTestFile "TestCase.vbst"
-RunTestFile "misc.vbst"
-
 
 ' ==============================================================================
 

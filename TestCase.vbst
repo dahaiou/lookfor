@@ -12,8 +12,14 @@ say "Including: " & inc1NameString
 Dim TCnum, TCtitle, TCnumber2, TCtitle2, TCsendlogOn, TCechoOn, TCsuccess, TCexpected, TCremain
  TCsendlogOn = False
  TCechoOn = False
- 
-Dim aTCsh(), iTCshCount, aTCfs(), iTCfsCount		'! Array of Shell objects and File System Objects respectively
+
+Dim iTCTotCount, iTCPassCount, iTCFailCount		'! Count of Total/Passed/Failed TestCases
+iTCTotCount  = 0
+iTCPassCount = 0
+iTCFailCount = 0
+
+ReDim aTCsh(4), aTCfs(4)		'! Array of Shell objects and File System Objects respectively
+Dim iTCshCount, iTCfsCount
 iTCshCount = 0
 iTCfsCount = 0
 
@@ -23,11 +29,10 @@ iTCfsCount = 0
  Set oTCmatch = Nothing
  
  <:
- '_h2 TestCase (s) - Start New TestCase: Reset relevant bookkeeping vars and announce in log output
+ '_h2 TCNew (s) - Start New TestCase: Reset relevant bookkeeping vars and announce in log output
  ' ====================================================================================================
- ' TODO: Consider "TestCaseNew" as name alternative(?)
-Sub TestCase (s)
- 
+Sub TCNew (s)
+
 	' Decode opts and args
 	sArr = Split (Trim(s), " ", 2)
 
@@ -40,7 +45,7 @@ Sub TestCase (s)
 	TClog ""
 	TClog replace_args ("TestCase: {TCnum} {TCtitle}")
 	TClog "===================================================================================================="
-End Sub ' Sub TestCase (s)
+End Sub ' Sub TCNew (s)
 
 '_h2 TClog (s) - Write to TC log output ie. stdout and any outfiles defined
 ' ====================================================================================================
@@ -52,32 +57,48 @@ End Sub ' Sub TClog (s)
 
 '_h2 TCcheckResult (line, expected) - Check result of TestCase, update bookkeeping and write log outputs
 ' ====================================================================================================
-' TODO: ...
-Sub TCcheckResult (line, expected)
+'!@TODO: ...
+'! Options to:
+'!		o Ignorecase (default is false)
+'!		o (Default): Remove the matched pattern
+'!		o Not Remove anything
+'!		o Remove the line where the matched pattern was found
+'!		o Remove from beginning up to the matched pattern
+'!		o Remove from beginning up to end of line where pattern found
+'!		o 
+'!		o 
+Sub TCcheckResult (ByRef line, expected)
 	' Preparation
 	' saydbg "TCcheckResult enter"			' **** DEBUG
 	If oTCregx is Nothing then
 		Set oTCregx = New RegExp
-		oTCregx.global = true
+		oTCregx.global = false
 		oTCregx.ignorecase = false
 	End If
 
-	oTCregx.pattern = "(" & expected & ")([\s\S]*)"
+'	oTCregx.pattern = "(" & expected & ")([\s\S]*)"
+	oTCregx.pattern = expected
 	'	saydbg "TCcheckResult about to execute pattern:" & "(" & expected & ")([\s\S]*)"			' **** DEBUG
 	Set oTCmatch = oTCregx.Execute(line)
 
 	
 	'	saydbg "Now checking if matched or not"			' **** DEBUG
 	' Now check if it matched or not
-	If oTCmatch.Count > 0 Then
+	' If oTCmatch.Count > 0 Then
+	If oTCregx.Test(line) Then
 		TCsuccess = True
+		iTCTotCount  = iTCTotCount  + 1
+		iTCFailCount = iTCFailCount + 1
 		' Set TCremain to the (.*) part
-		max = oTCmatch(0).submatches.Count-1
-		TCremain = oTCmatch(0).submatches(max)
-		TClog replace_args ("Result: TC-{TCnum} OK")
+		'max = oTCmatch(0).submatches.Count-1
+		'TCremain = oTCmatch(0).submatches(max)
+		TCremain = oTCregx.Replace (line, "")
+		TClog replace_args ("==== Result: TC-{TCnum} OK")
 	Else
 		TCsuccess = False
-		TClog replace_args ("Result: TC-{TCnum} FAILED ********")
+		iTCTotCount  = iTCTotCount  + 1
+		iTCFailCount = iTCFailCount + 1
+		TClog replace_args ("==== Result: TC-{TCnum} #### FAILED ####")
 
 	End If
  End Sub ' Sub TCcheckResult (line, expected)

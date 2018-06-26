@@ -1565,3 +1565,11 @@ Private Sub old_RunTestFile(ByVal filename)
 
 End Sub '! Private Sub old_RunTestFile(ByVal filename)
 
+ ' ====================================================================================================
+ '_h1 Includefiles that must be run at the end
+ ' ====================================================================================================
+ ' ====================================================================================================
+
+RunTestFile "TestCase.vbst"
+RunTestFile "misc.vbst"
+
