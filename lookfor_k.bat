@@ -11,4 +11,4 @@ rem and you can simply go "lookfor" to run it again
 
 rem From an already open cmd console, call lookfor.bat instead
 
-cmd.exe /K @cscript.exe //NoLogo lookfor.vbs
+cmd.exe /K @cscript.exe //NoLogo lookfor.vbs %*

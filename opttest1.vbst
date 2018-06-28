@@ -50,7 +50,7 @@
 '   AND b.) prompt pattern used by Parent when reading from slave's stdout
 ' x mechanism for identifying "child" output eg. beginning each output line with ">"
 ' o handling child and parent pid (though unclear in what way it might be useful)
-' o general help message and help message for main commands
+' o general help message and help message for main commands 
 ' o continuous bookkeeping of how many and which TC's were executed/OK/failed
 
 
@@ -79,7 +79,7 @@ _.say Echoing 3*4 here: {3*4} (YEEAAASS, if you see 12, expr substitution is wor
 _ .dbg add getopts ' Debug messages for getopts need to be turned on in slave process
 _ -l .tgopts mycmd -abc a1 a2 a3
 ' =================================================================================================
-subtestidx = 0
+subtestidx = 0  
 ' subtestnum = testnum & "." & inc(subtestidx)
 TCexpected = "Initial\s+restline\s*=\s*\'mycmd\s+-abc\s+a1\s+a2\s+a3\'"
 TCcheckResult Foundline, TCexpected        ' logs success or failure of regex comparison

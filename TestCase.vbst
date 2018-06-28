@@ -28,6 +28,24 @@ iTCfsCount = 0
  Set oTCregx  = Nothing
  Set oTCmatch = Nothing
  
+ '! Open TestCase Logfile and Shell
+ Sub TCOpenLogFile (fname)
+	' Handle opts: -a append, -r rename (earlier logfiles)...
+	' Open logfile and shell
+	' Attach them to aTCsh and aTCfs arrays
+ End Sub
+
+ '! Close TestCase Logfile and Shell
+ Sub TCOpenLogFile (n)
+	' Handle opts: ...
+	' Unattach from aTCsh and aTCfs arrays
+	' Close the files
+	' Release the objects
+ End Sub
+
+
+
+
  <:
  '_h2 TCNew (s) - Start New TestCase: Reset relevant bookkeeping vars and announce in log output
  ' ====================================================================================================
@@ -59,10 +77,10 @@ End Sub ' Sub TClog (s)
 ' ====================================================================================================
 '!@TODO: ...
 '! Options to:
-'!		o Ignorecase (default is false)
+'!		o -i Ignorecase (default is false)
 '!		o (Default): Remove the matched pattern
-'!		o Not Remove anything
-'!		o Remove the line where the matched pattern was found
+'!		o -R Do NOT Remove anything
+'!		o -l Remove the line where the matched pattern was found
 '!		o Remove from beginning up to the matched pattern
 '!		o Remove from beginning up to end of line where pattern found
 '!		o 
