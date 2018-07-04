@@ -27,7 +27,8 @@ iTCfsCount = 0
  Dim oTCregx, oTCmatch
  Set oTCregx  = Nothing
  Set oTCmatch = Nothing
- 
+ <:
+
  '! Open TestCase Logfile and Shell
  Sub TCOpenLogFile (fname)
 	' Handle opts: -a append, -r rename (earlier logfiles)...
@@ -42,29 +43,101 @@ iTCfsCount = 0
 	' Close the files
 	' Release the objects
  End Sub
+:>
+
+<:
+ '! : Checking Global_sPipeClass_defined
+ If Global_sPipeClass_defined Then
+	sayerr "Warning: Class cannot be redefined. Skipping sPipeClass."
+	GlobalDiscardNextBlock = True
+	' wscript.sleep(500)
+ End If
+:>   
+ 
+'*wscript.sleep(100)
+'*say "Just slept 100"
+'If GlobalDiscardNextBlock Then say "GlobalDiscardNextBlock is True"
+
+' Note, without the following line GlobalDiscardNextBlock does not work the first time through here
+' 		Starting from the second time it works OK without
+'If GlobalDiscardNextBlock Then dummy = 0
+
+'If Global_sPipeClass_defined Then GlobalDiscardNextBlock = True
+<:
+ ' '!: Silly String Pipe functions - NB: Initial '!: Generates "Direct" .vbst parse-time comment output
+ '# If Global_sPipeClass_defined Then GlobalDiscardThisBlock = True
+  Global_sPipeClass_defined = True
+
+  '#.say ##############  Wonderful HASHmark Subsitution ################
+ ' '!: Just about to declare sPipeClass - NB: Initial '!: Generates "Direct" .vbst parse-time comment output
+ class sPipeClass
+	Dim Subscribers()
+	Dim SubsCount, sBuf
+
+	Sub Write(s)
+		' Do stuff
+ 	End Sub
+
+	Sub Writeline(s)
+		' Do stuff
+	End Sub
+	
+	Function GetBuf()
+		' Do stuff
+	End Function
+ 	
+ End Class
+
+:>
+
+'sayerr "Still running after sPipeClass"
+
+<:
+
+Sub saytime1()
+ .say Current time1: {Time}
+End Sub
+
+Sub saytime2()
+ say "Current time1: {Time}"
+End Sub
+
+Sub saytime3()
+ say "Current time1: " & Time
+End Sub
 
 
 
 
- <:
+
  '_h2 TCNew (s) - Start New TestCase: Reset relevant bookkeeping vars and announce in log output
  ' ====================================================================================================
 Sub TCNew (s)
 
 	' Decode opts and args
 	sArr = Split (Trim(s), " ", 2)
+	Dim myLocVar1
+	myLocVar1 = "Inside Sub TCNew, called with s='" & s & "'"
+
+	' The following does not display as intended because myLocVar1 is local
+	' TClog replace_args ("TCNew saying myLocVar1:{myLocVar1}")
+	'.say TCNew saying myLocVar1:{myLocVar1}
+    '.say TCNew saying myLocVar1:{myLocVar1}
+
 
 	' Set data, Note these vars are all global, reflecting current test case and sub-case
 	TCnum     = sArr(0)
 	TCtitle   = sArr(1)
 	TCnumber2 = ""		' sub-number and -title
 	TCtitle2  = ""
+
 	' Log what's going on
 	TClog ""
 	TClog replace_args ("TestCase: {TCnum} {TCtitle}")
 	TClog "===================================================================================================="
 End Sub ' Sub TCNew (s)
-
+:>
+<:
 '_h2 TClog (s) - Write to TC log output ie. stdout and any outfiles defined
 ' ====================================================================================================
 ' TODO: Outfiles NIY, Also: control verbosity level with global variables

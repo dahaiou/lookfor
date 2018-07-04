@@ -152,6 +152,8 @@ Dim Gtest1, Gtest2  '! for testing
 Gtest1 = "Global test 1"
 Gtest2 = "Global test 2"
 
+Dim GtempVar  '! for temporary manipulation
+GtempVar = ""
 
 Dim FoundLine '! Last line read back from stdout of Slave process
 Foundline = ""
@@ -168,6 +170,10 @@ SlaveOutFlag = ""
 SlavePrompt = ""
 SlaveFname = ""						' SlaveFname holds filename of slave app when active
 SlaveCmdFn = ""						' SlaveCmdFn holds filename of dos shell, normally "cmd.exe", when active
+
+Dim GlobalDiscardThisBlock, GlobalDiscardNextBlock
+GlobalDiscardThisBlock = False
+GlobalDiscardNextBlock = False
 
 Dim ErrArray
 
@@ -202,7 +208,6 @@ Sub getArgs()
 		End If
 	Next
 End Sub 
-
 
 Sub SetMyPrompt(p)
 	myprompt = p
@@ -489,7 +494,7 @@ Sub RunVbshLine (line)
 			help
 		
 		'! NOTE: Once Slave app is started you can send commands to it directly
-		'! 		 by simply preceding with ">" or "_" eg. _/echo "hello"
+		'! 		 by simply preceding with ">" or "_" eg. _say "hello"
 		
 		ElseIf Left(line, 1) = ":" Then
 			say "Test output(preprocess_cmdline): " & preprocess_cmdline (mid(line,2))

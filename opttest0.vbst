@@ -66,6 +66,8 @@ If SlaveExec Is Nothing Then: NewCmdLookfor: End If
 TCsendlogOn = True
 HideSlavePrompt = True
 
+Set TestCase = GetRef("TCNew")
+
 ' =================================================================================================
 . TestCase 0.00 Intro Messages
 ' =================================================================================================
@@ -120,27 +122,25 @@ b=2
 
 ' multiline starts on next line (provided no quotes between = and <)
 ' NOTE: Line must end with "<+". Single-quote comments are not allowed
-' longstr= <+    ' this comment invalidates the possy-bird indicator
-
-' multiline starts with the quoted text present on this line
-' NOTE: Line must end with "<+". Single-quote comments are not allowed
-' longstr= "some initial text <+    ' this comment invalidates the possy-bird indicator
+' longstr= <+    ' this comment invalidates the here-block indicator
 
 ' In this case the multiline starts with a newline (VBCrLf)
 ' NOTE: Line must end with "<+". Single-quote comments are not allowed
 
-' End of possy-bird block is signalled by "+>" at END of line, 
+' End of here-block is signalled by "+>" at END of line, 
 ' It will even go undetected if followed by as much as a space
 
 longstr=<+  ' "here"
 This is a "here block" aka "here document" or just heredoc, {a} is a number just like {a} yeah
 This is similar to the "here document" in other langs, and it includes a nifty substitution feature 
-for expressions eg. if you calculate 3*4 you usually get {3*4} as a result.
+for expressions eg. if you calculate 3*4 you usually get {3*4} as a "{3*4}" result.
 Now, to end the block you use the end-here-block marker "+>" at the end of a line,
-but it MUST be at the END of the line. If the marker is followed
-by as much as a single space character it will go undetected,
-which is exactly what happens here, at the end of this line: +> 
-and so the block just continues here on the next line
+but it MUST be at the END of the line. 
+==== ACTUALLY, this has changed 2018-06-30: End marker "+>" WILL work, despite trailing spaces ====
+==== But it must be at the END of the line EXCEPT for any trailing spaces. 
+If the marker is followed by as much as a single Tab character it {chr(123)}will} go{chr(9)} undetected,
+which is{chr(9)} exactly {{ghdsf}} what happens here {}, at { } the end{chr(9)} of this line: +> (not working: maybe editor replaces tab with spaces (?))
+and so the block {"":thisvar1267= "=text="} just continues {thisvar1267} here on the next line
 +>
 longstr= longstr & <+
     This, however, is a continuation ...

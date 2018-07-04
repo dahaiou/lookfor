@@ -1,5 +1,5 @@
 
-' Global Declarations
+' Global Declarations and Initialisation
 ' =================================================================================================
 IncludeName = "inc1.vbs"
 IncludeVersion = "0.06-01"
@@ -8,19 +8,23 @@ say "Including: " & inc1NameString
 
 ProgPackages = ProgPackages & " " & Include_blurb
 
-Dim g_opts_found
+Dim g_opts_found			' #### DEBUG: global var holding options found from last call to getopts
 g_opts_found=""
 
-Dim oRx, oMatch
-
- '! Global Regex to use anywhere
+Dim oRx, oMatch			'! Global Regex, available to use anywhere
+If vartype (oRx) = 0 Then	' Only init first time: Conserve vars if this code is reimported
 	Set oRx = New RegExp
 	oRx.global = True
 	oRx.ignorecase = False
 	oRx.pattern = "^(\s*)"
 	Set oMatch = oRx.Execute("Dummy text")
+End If
 
 
+' ====+====1====+====2====+====3====+====4====+====5====+====6====+====7====+====8====+====9====+====0
+ 
+' ====+====1====+====2====+====3====+====4====+====5====+====6====+====7====+====8====+====9====+====0
+		
 
 ' Routines
 ' =================================================================================================
@@ -43,6 +47,10 @@ Private Function NewRegExp(pattern, ignoreCase, searchGlobal)
 End Function
 
 
+Private oRxLTrim : Set oRxLTrim = NewRegExp("^[^\S\n]*", True, True)
+Function rxLTrim (s)
+	rxLTrim=oRxLTrim.replace(s,"")
+End Function
 
 Sub ssend (ByRef cmdline)
 	'! Usage: ssend -E -l <line>
@@ -115,14 +123,17 @@ End Function
 
 
 '_h2 #DBG_ routines - Selective debug messages: enabled/disabled by topic or function
-_
- ' ====================================================================================================
- ' Globals related to saydbg(s)
- Dim DBG_enabled, DBG_current, DBG_banner
- DBG_enabled = "|"		' holds enabled debug topics separated by vertical bar eg. "|topic1|topic2|...""
- DBG_topic   = "|"
- DBG_banner  = "#### DEBUG"
 
+_ 
+' Globals related to saydbg(s)
+ ' ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----O
+ Dim DBG_enabled, DBG_current, DBG_banner, DBG_bannerDefault
+ DBG_bannerDefault = "#### DEBUG"
+ If vartype (DBG_enabled) = 0 Then	' Only init first time: Conserve vars if this code is reimported
+	DBG_enabled = "|"		' holds enabled debug topics separated by vertical bar eg. "|topic1|topic2|...""
+	DBG_topic   = "|"
+	DBG_banner  = DBG_bannerDefault
+ End If
 
  ' dbg (dbgCmd) - Manage debug settings
  ' ====================================================================================================
@@ -163,9 +174,10 @@ _
 	Elseif sDBcheck ("|reset|", cmd) Then
 		' reset
 		say "dbg reset:"
-		say "dbg reset: "
-		sDBreset DBG_enabled
-
+		DBG_enabled = "|"
+		DBG_topic   = "|"
+		DBG_banner  = DBG_bannerDefault
+	
 
 	Elseif sDBcheck ("|add|", cmd) Then
 		t="  "
@@ -197,8 +209,8 @@ _
 	Dim topic, topics, t, on_topic
 	topic = ""
 	' Get topic from s, if present, in the form "@topic rest of string"
-	If InStr (LTrim(s),"@") = 1 Then
-		sv    = split(LTrim(s), " ", 2)
+	If InStr (rxLTrim(s),"@") = 1 Then
+		sv    = split(rxLTrim(s), " ", 2)
 		topic = Trim(Replace(sv(0),"@", "", 1, 1))
 		if ubound(sv) >= 1 Then
 			s = sv(1)
@@ -282,7 +294,7 @@ _
 '_h2 Test RegEx
 ' ====================================================================================================
 _ 
- 
+ Set trx = Getref ("test_rx")
  sub test_rx(s,sPat)
  	set oRx=Nothing
  	set oMatch=Nothing
@@ -556,17 +568,17 @@ Sub getopts (optstr, ByRef cmdline, ByRef opts_found)
 	oRegOpts.pattern = sPat
 
 	Do
-		'say "**** DEBUG: opts_found:" & opts_found			' **** DEBUG
-		'say "**** DEBUG: Checking:" & oRegOpts.pattern			' **** DEBUG
-		'say "**** DEBUG: Against :" & restline			' **** DEBUG
+		saydbg "@getopts_do1 opts_found:" & opts_found			' **** DEBUG
+		saydbg "@getopts_do1 Checking:" & oRegOpts.pattern			' **** DEBUG
+		saydbg "@getopts_do1 Against :" & restline			' **** DEBUG
  
 		Set oMatch = oRegOpts.Execute(restline)
 		
-		'say "**** DEBUG: oMatch.Count=" & oMatch.Count & " oMatch.submatches.Count=" & oMatch.submatches.Count
-		'say "**** DEBUG: oMatch.Count=" & oMatch.Count
+		'saydbg "@getopts_do2 oMatch.Count=" & oMatch.Count & " oMatch.submatches.Count=" & oMatch.submatches.Count
+		'saydbg "@getopts_do2 oMatch.Count=" & oMatch.Count
 		If oMatch.Count <= 0 Then Exit Do
 
-		'say "**** DEBUG: oMatch(0).submatches.Count=" & oMatch(0).submatches.Count
+		'saydbg "@getopts_do2 oMatch(0).submatches.Count=" & oMatch(0).submatches.Count
 
 		'For j = 0 to oMatch(0).submatches.Count - 1			' **** DEBUG
 		'	say "		oMatch(0).submatches("&j&")=" & oMatch(0).submatches(j)			' **** DEBUG
@@ -683,7 +695,7 @@ Sub getopts (optstr, ByRef cmdline, ByRef opts_found)
 					ElseIf i = len (this_tok) then
 						' -abcdf=value where f requires value, is last in this token
 						this_opt = "-" &this_opt & "=" 			' disguise "f" as "-f="
-						restline = this_opt & LTrim(restline)		' stick it in before rest of line
+						restline = this_opt & rxLTrim(restline)		' stick it in before rest of line
 						saydbg "@getopts Assigned Disguised restline:'"&restline&"'"		' **** DEBUG
 
 						Exit For								' and simply handle in next iteration
@@ -806,6 +818,8 @@ Private Sub RunTest(ByVal filename)
 
 End Sub ' Private Sub RunTest(ByVal filename)
 
+sub sppa(s): say replace_args(s): end sub		' *** DEBUG
+
 ' ====================================================================================================
 Function replace_args (argline)
 	' Function replace_args (argline)
@@ -822,10 +836,17 @@ Function replace_args (argline)
 	'	5. double quotes ""are doubled"", producing normal (undoubled) quotes
 	'	   when the resulting line is further processed as a string
 	'	6. Finally, "<rest of line>" is returned, enclosed in quotes
-	'	NOTE: The resulting line is NOT right-trimmed, only left
+	'	NOTE: The resulting line is NOT right-trimmed, (and not even left anymore, see below)
 	'	NOTE: Left-trimming was also removed, but not properly tested yet: 2018-06-15 V0.05-01
 	'	TODO: Test whether removal of Left-trimming affected anything
-	replace_args = argline
+	
+	'Declare variables to make sure they are local
+	'Note EXCEPT GtempVar that is assigned by ExecuteGlobal and NEEDS to be global
+	Dim f_name, f_error, remline, argl2, pq, ps, s, cmline
+
+	
+	
+	replace_args = argline			' Inputline is returned as is in case of error exit
 	f_name = "replace_args"
 	f_error = "Error(" & f_name & "): "
 	' say "replace_args called, argline="&argline		' *** DEBUG
@@ -833,7 +854,7 @@ Function replace_args (argline)
 	' argline  = trim(argline)
 	if len(Trim(argline)) = 0 then Exit Function		' Empty line is OK, we just quit silently
 	
-	'remline = LTrim(argline)
+	'remline = rxLTrim(argline)
 	remline = argline
 	argl2 = ""
 
@@ -855,17 +876,24 @@ Function replace_args (argline)
 	
 			On Error Resume Next
 			Err.Clear
-			' say "ExecuteGlobal (""tmp_v=""&trim("&s&"))"		' *** DEBUG
-			ExecuteGlobal "tmp_v="&trim(s)
-			' tmp_v = Eval(s)
+			' say "ExecuteGlobal (""GtempVar=""&trim("&s&"))"		' *** DEBUG
+'			ExecuteGlobal "GtempVar="&trim(s)
+			ExecuteGlobal "GtempVar="""" & "&trim(s)
+			' GtempVar = Eval(s)
 			If Err.Number <> 0 Then
 				sayerr f_error & "Unable to substitute variable: """ & trim(s) & """"
 				sayerr Trim(Err.Description & " (0x" & Hex(Err.Number) & ")")
-				Exit Function
+				GtempVar=""
+				If strictErrExit Then		' strictErrExit means one error causes the whole line to be left unparsed
+					Exit Function
+				Else 
+					' GtempVar="{" & s & "}" 	' putting the erroneous string back in was an experiment, but not a good idea.
+					' This way {<anything unvalid>} is just removed, including the curlies
+				End If
 			End If
 			On Error Goto 0
 
-			argl2 = argl2 & tmp_v
+			argl2 = argl2 & GtempVar
 		elseif (pq > 0 and (ps = 0 or ps > pq)) then  ' quote found first
 			argl2 = argl2 & left (remline, pq) & """"
 			remline = mid (remline, pq + 1)
@@ -895,12 +923,10 @@ Function replace_args (argline)
 
 End Function ' Function replace_args (argline)
 
-sub sppa(s): say replace_args(s): end sub		' *** DEBUG
-
 ' Position of first non-space char in s
 ' or = len(s) +1 if none
 Function Ltrimpos (s)
-	LTrimPos = len (s) - len (Ltrim(s)) + 1
+	LTrimPos = len (s) - len (rxLtrim(s)) + 1
 End Function
 
 ' ====================================================================================================
@@ -921,6 +947,9 @@ Function preprocess_cmdline (cmdline)
 	'	6. Finally, <rest of line> is enclosed in quotes and
 	'	   <command> "<rest of line>" is returned, making it suitable
 	'	   for being run directly, if <command> was defined as a Sub
+	'	   TODO: Adapt to work with multiple arguments
+	'	   TODO: Adapt this, or write separate routine to call functions
+	'			ie. where arguments need to be enclosed in brackets
 	preprocess_cmdline = ""
 	f_name = "preprocess_cmdline"
 	f_error = "Error(" & f_name & "): "
@@ -929,10 +958,10 @@ Function preprocess_cmdline (cmdline)
 	cmd = ""
 	argline  = ""
 
-	' Remove initial "." dot if present, but not spaces before of after dot
-	' cmdline = LTrim (cmdline)
+	' Remove initial "." dot if present, but not spaces before or after dot
+	' cmdline = rxLTrim (cmdline)
 	ltpos = LTrimPos (cmdline) ' position of first non-blank
-	'if Left (LTrim (cmdline), 1) = "." Then cmdline = LTrim (Mid (cmdline, 2))
+	'if Left (rxLTrim (cmdline), 1) = "." Then cmdline = rxLTrim (Mid (cmdline, 2))
 
 
 	if Mid (cmdline, ltpos, 1) = "." Then cmdline = Replace (cmdline, ".", "", 1, 1)
@@ -958,21 +987,26 @@ Function preprocess_cmdline (cmdline)
 	'say "argl2="&argl2		' *** DEBUG
 	cmline = cmd & " " & """"&argl2&""""
 
-	' say "Resulting command line=/"&cmline&"/"		' *** DEBUG
+	saydbg "@preprocess_cmdline Resulting command line=/"&cmline&"/"		' *** DEBUG
 
 	preprocess_cmdline = cmd & " " & """"&argl2&""""
 
 End Function ' Function preprocess_cmdline (cmdline)
 
+
  ' ====+====1====+====2====+====3====+====4====+====5====+====6====+====7====+====8====+====9====+====0
  Private Sub RunTestFile (ByVal filename)
+ ' ====+====1====+====2====+====3====+====4====+====5====+====6====+====7====+====8====+====9====+====0
 	' RunTestFile - Similar to the "Import" routine, but some specific tricks apply:
 	' ============================================================================
 	' 
 	' Preprocessing happens as follows for each line read from the file RunTestFile:
-	'  0. "Normal lines": By default lines are executed as normal vbs code witout change
+	'  0. "Normal lines": By default lines are executed as normal vbs code without change
+	'		Lines are executed "immediately" ie. before the next line is read in from file
+	'		However, different types of multi-line blocks are exceptions to this. See below.
+	'
 	'  1. "Dot substitution": Lines beginning with dot "." are converted as follows:
-	'     Think of initial "." dot as: 
+	'     Think of initial "." dot from a lazy-user perspective, such as: 
 	'        Please run this command cmd ... for me, and btw I was too lazy to write quotes, so
 	'        could you please add quotes around whatever comes after the command, and while you're
 	'        at it, I'd appreciate if you would substitute expressions within curly braces too.
@@ -981,6 +1015,7 @@ End Function ' Function preprocess_cmdline (cmdline)
 	'     b. Expressions enclosed in curly braces {} are evaluated and substituted
 	'        example: "linecount = {linecount}" the value of linecount is substituted
 	'        or "Date: {date} Time: {time}" will make those substitutions
+	'        NOTE: that ONLY GLOBAL variables are valid in such expressions
 	'     c. Curly braces within quotes are not substituted
 	'     d. Quotes in expressions within curly braces are not doubled, in fact they are executed,
 	'        as part of evaluating the expression.
@@ -989,24 +1024,73 @@ End Function ' Function preprocess_cmdline (cmdline)
 	'        eg. For the line: .say time={time} results in substitution of {time} with current time
 	'     	 giving a line like "say ""time=15:12:36"""" which is then executed, giving
 	'        the console output: time=15:12:36
-	'     
-	'     
-	'     
-	'  2. "right arrow:" Lines beginning with ">" or "_" are handled as follows:
-	'     a. All double quotes existing in the line are doubled, from " to ""
+	'		
+	'  2. Slave marker: Lines beginning with the "slave marker" ">" or "_" are handled as follows:
+	'     a. Quote-doubling and curly-brace substitution is done, same as for "dot-substitution" above
 	'     b. Then, initial ">" or "_" removed, the line is enclosed in ssend ("<line>")
-	'        eg. The line: .setmem B7F8 "this is a string"
-	'        becomes: ssend ("setmem B7F8 ""this is a string""")
+	'     	 and executed ie. function ssend is called with the resulting line as argument
+	'        eg. The line: _ -l setmem B7F8 "this is a string"
+	'        becomes: ssend ("-l setmem B7F8 ""this is a string""")
+	'		 Then, when executed, ssend will understand -l as a command line option, strip it off
+	'     	 and send the line: 'setmem B7F8 "this is a string"' to stdin of the slave app
+	'     	 (with the -l option, ssend "logs" ie. prints a message of what is sent just before sending)
+	'     c. Note that the line sent on to the slave may well include an initial dot "."
+	'     	 In case the slave-process is itself another instance of lookfor, then the line:
+	'     	 "_.say hello" will send ".say hello" to the slave, which dot-converts it to 'say "hello"'
+	'     	 and the text "hello" will be sent back in the slave's stdout
 	'     
-	'! 
-	'! 		a. 
-	'!		2. 
-	'!		
-	'!		
-	'!		and then executed.
-	'!		ssend will then pass the string in as a command line to the slave app
-	'!		with the doubled quotes converted back to single ones again
-
+	'  3. # Hash-mark: Lines with an initial "#" are executed immediately, same as "normal" lines.
+	'		Ie. these lines will work the same whether the hash-mark is there or not, including
+	'		dot-substitution and slave-marker lines
+	'		This is just to maintain consistency with "Hash-mark" lines within code blocks, see below.
+	'		Think of these lines as similar to preprocessor directives and use them for that purpose.
+	'		PLEASE DO NOT USE them for other "normal" code
+	'		
+	'  4. Code Blocks: Multi-line code blocks enclosed in "smiley-bird" markup "<: <multi-line block> :>"
+	'	  a. All content enclosed within the "smiley-bird" markers is read line-by line into memory
+	'		 and not until reaching the end marker ":>" is the whole block executed in one go.
+	'		 this allows  multi-line constructs such as Sub(), Function(), If Then Else etc.
+	'		 An exception to this are the "hash-mark" lines, see below.
+	'	  b. "Dot-substitution" is done, as described above for lines with initial dot "."
+	'		 But NOTE that the substitution happens at parse-time, which could cause unexpected
+	'		 results inside Sub() or Function() definitions if these are called later because
+	'		 the dot-substituted variables will still appear with the values they had at parse-time
+	'		 eg. the line '.say Current time: {Time}' inside a Sub() will give the time at parse-time
+	'	  c. NOTE: NOT done: Quote-doubling and curly-brace substitution is NOT done for normal lines
+	'		 ONLY for lines with the initial dot
+	'	  d. # Hash-mark: Lines with an initial "#" are executed immediately at parse-time
+	'		 They are NOT included as part of the block that is being read in.
+	'	   d1: Note: Hash-mark lines are in global context and namespace, completely independent of
+	'		 the surrounding lines of code in the block. Eg. local variables are not visible to them
+	'	   d2: "dot-substitution" works in these lines too, as described above
+	'	   d3: "slave-marker" lines also work "#_ <line>", but are unnecessary and NOT RECOMMENDED
+	'	   d4: The #-substitution DOES make sense inside a block like: <: Class xyz ... End Class  :>
+	'			 # If Global_xyzClass_defined Then GlobalDiscardThisBlock = True
+	'		 Here the whole multi-line block will be discarded if the global var is set, eg.
+	'		 to avoid an execution error by NOT repeating a class definition found in that block.
+	'	  e. "Chatter Comments" Initial '!: Generates "Direct" .vbst parse-time comment output
+	'		 equivalent to #.say <comment text> except that expression substitution is not done
+	'		
+	'  5. Here-Blocks: aka "here documents" Multi-line blocks of text enclosed in the markers "<+" and "+>"
+	'	  An entire multi-line block of text is treated literally as one string, including linefeeds.
+	'	  Useful for printing multi-line messages, or assigning multi-line text content to variables.
+	'     a. Quote-doubling and curly-brace substitution is done, same as for "dot-substitution" above
+	'	  b. The quote-doubling means that quotes appearing in the text will propagate correctly
+	'		  eg. when being printed out, or read into a variable and printed out later.
+	'	  c. Including literal curly braces is tricky at the moment:
+	'		 The Chr function can be used: Left-curly as {chr(123)} and right-curly as {chr(125)}
+	'			(actually right-curly "}" works as a normal character if not preceded by left-curly)
+	'		 They can also be enclosed in "quotes {like this}", if you don't mind the quotes
+	'		 TODO: Should probably implement an option for this, or handle backslash "\{" notation
+	'		
+	'  6. "Underscore-continuation": multi-line block of code,
+	'	  signalled by space+underscore " _" at the end of each line, or just an underscore
+	'	  in the case of empty lines.
+	' 	  The input lines are concatenated into one long line, space-separated, without linefeeds, and
+	'	  then executed, similar to multi-line blocks, but without dot- or other substitutions
+	'	  PLEASE DO NOT USE this. It is cumbersome and doesn't seem to work right. Use multi-block instead
+	'	  Left in for now, for possible compatibility issues.
+	'		
 
 	Dim exitOnError, fso, sh, file, code, dir, executeNow, nonExeCount, fLine, TestLine, qpos, ppos
 
@@ -1057,8 +1141,37 @@ End Function ' Function preprocess_cmdline (cmdline)
 	Do While Not file.AtEndOfStream 
 		fLine 		= file.ReadLine		' An untrimmed fLine may be needed below in some cases
 		flineno = flineno + 1
-		TestLine 	= LTrim(fLine)
+		TestLine 	= rxLTrim(fLine)
 		
+		' Asterisk lines executed immediately, for debugging, WITHOUT dot or slave-marker -substitution 
+		' ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----O
+		If Left (TestLine, 1) = "*" Then						' **** DEBUG
+			code = Mid(TestLine,2)
+			'code = replace_args (code)
+			'sayerr "**** Asterisk mode, executing: " & code
+			executeglobal(code)
+			TestLine = ""
+			code = ""
+		End If
+
+		' Hash-mark lines executed immediately, similar to preprocessor directives
+		' TODO: Make hashmarking MORE like REAL preprocessor directives, especially allow include files.
+		' ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----O
+		If Instr(rxLTrim (Testline), "#") = 1 Then			' #### DEBUG
+			TestLine = Mid (rxLTrim(TestLine), 2)
+			saydbg "@runtestfile Hashmark immediate Execute: " & TestLine
+			RunVbshLine(Testline)
+			Testline = ""
+		End If
+
+		' "Chatter Comments" Initial '!: Generates "Direct" .vbst parse-time comment output
+		' ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----O
+		If Instr(rxLTrim (Testline), "'!:") = 1 Then			' #### DEBUG
+			say Testline
+			Testline = ""
+		End If
+
+
 		' Handle multi-line code block
 		' ----+----+----+----+----+----+----+----+----+----L----+----+----+----+----+----+----+----+----+----C
 		' ----.----o----.----o----.----o----.----o----.----L----+----o----+----o----+----o----+----o----+----|
@@ -1070,21 +1183,42 @@ End Function ' Function preprocess_cmdline (cmdline)
 		If Left (TestLine, 2) = "<:" Then		' Left <: smiley-bird block indicator 
 			right_smiley_found = False
 			' TestLine = Mid (TestLine, 3)
-			TestLine = Mid (LTrim(fline), 3)
+			TestLine = Mid (rxLTrim(fline), 3)
 			Do
+				' "Chatter Comments" Initial '!: Generates "Direct" .vbst parse-time comment output
+				' ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----O
+				If Instr(rxLTrim (Testline), "'!:") = 1 Then			' #### DEBUG
+					say Testline
+					Testline = ""
+				End If
+
+				' "Hash-mark" lines: Initial "#" is executed immediately at parse-time
+				' ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----O
+				If Instr(rxLTrim (Testline), "#") = 1 Then			' #### DEBUG
+					TestLine = Mid (rxLTrim(TestLine), 2)
+					saydbg "@runtestfile Hashmark immediate Execute: " & TestLine
+					RunVbshLine(Testline)
+					Testline = ""
+				End If
+
 				' Handle case where end token ":>" is on same line
 				' Uncertain, TestCase: what if fLine has end token followed by spaces(?)
-				' sayerr "smiley-bird block line: " & TestLine
-				If Right(Testline, 2) = ":>" Then
+				' saydbg "@runtestfile smiley-bird block line: " & TestLine
+				If Right(RTrim(Testline), 2) = ":>" Then
+					Testline = RTrim(Testline)
 					Testline = Left(TestLine, len (TestLine) - 2 )
 					right_smiley_found = True
 				End If
 
+				'sayerr "@runtestfile_dot checking for dot in:"&TestLine  ' **** DEBUG
+
 				' Preprocess
 				'Testline = Trim (TestLine)
-				If Mid(Testline, LTrimPos(Testline), 1) = "." Then
-					' sayq "preprocessing:"&TestLine  ' **** DEBUG
+				If Instr(rxLTrim(Testline), ".") = 1 Then
+'				If Mid(Testline, LTrimPos(Testline), 1) = "." Then
+					saydbg "@runtestfile_dot dot-preprocessing:"&TestLine  ' **** DEBUG
 					Testline = preprocess_cmdline (TestLine)
+					saydbg "@runtestfile_dot dot-preprocessed result:"&TestLine  ' **** DEBUG
 				End If
 
 				'sayq "Testline="&Testline  ' **** DEBUG
@@ -1096,10 +1230,22 @@ End Function ' Function preprocess_cmdline (cmdline)
 				If right_smiley_found Or file.AtEndOfStream Then Exit Do
 
 				' Get next line
-				TestLine = file.ReadLine
+				fline = file.ReadLine
 				flineno = flineno + 1
+				TestLine = fline
 			Loop
-			' sayerr "smiley-bird block found:" & vbcrlf & "----------" & vbcrlf & code & vbcrlf & "----------"
+			' saydbg "@runtestfile smiley-bird block found:" & vbcrlf & "----------" & vbcrlf & code & vbcrlf & "----------"
+
+			If GlobalDiscardThisBlock Then
+				saydbg "@runtestfile Discarding THIS block <:" & VBCrLf & code & VBCrLf & ":>"
+				code = ""
+				GlobalDiscardThisBlock = False
+			End If
+			If GlobalDiscardNextBlock Then
+				saydbg "@runtestfile Discarding this NEXT block <:" & VBCrLf & code & VBCrLf & ":>"
+				code = ""
+				GlobalDiscardNextBlock = False
+			End If
 			TestLine = ""
 		End If	' If Left (TestLine, 2) = "<:" Then		' Left <: smiley-bird block indicator 
 
@@ -1108,8 +1254,8 @@ End Function ' Function preprocess_cmdline (cmdline)
 		' The "here-block" is a multi-line block of text, enclosed in "<+" and "+>" respectively
 		ppos = InStr (TestLine, "<+")
 		If ppos > 0 Then		' Left <+ here-block indicator 
-			'sayq "TestLine="&TestLine
-			'sayq "ppos="&ppos
+			'saydbg "@runtestfile_here TestLine="&TestLine
+			'saydbg "@runtestfile_here ppos="&ppos
 			' Check for string literal preceding the start token:
 			' Such a str will be concatted to, but substitution does not happen
 			
@@ -1123,10 +1269,10 @@ End Function ' Function preprocess_cmdline (cmdline)
 			'TODO: This check is NOT foolproof: Single quote inside a double-quoted sequence would count as comment
 			If InStrRev(Left(TestLine, ppos), "'") > 0 Then qcount = 1 ' (here we pretend the count was 1)
 
-			'sayq "qcount="&qcount
+			'saydbg "@runtestfile_here qcount="&qcount
 		
 			If qcount mod 2 = 0 Then
-				'say "Even number of quotes detected, or none: Thus, a VALID here-block start marker was found"
+				'saydbg "@runtestfile_here Even number of quotes detected, or none: Thus, a VALID here-block start marker was found"
 
 				code    = Left(TestLine, ppos - 1)
 				remline = Mid (TestLine, ppos + 2)
@@ -1136,25 +1282,25 @@ End Function ' Function preprocess_cmdline (cmdline)
 				Else
 					code = code & """"""
 				End If 
-				'sayerr "code="&code
+				'saydbg "@runtestfile_here code="&code
 
 
 				Do
-					' fLine = code: sayerr "here block line: " & fLine
 					fLine = file.ReadLine
 					flineno = flineno + 1
+					TestLine = fLine
 
-					If Right(fLine, 2) = "+>" Or file.AtEndOfStream Then
-						fLine = Left(fLine, len (fLine) - 2 )
-						code = code & " & """ & replace_args (fLine) & """"
+					If Right(RTrim(TestLine), 2) = "+>" Then
+						TestLine = RTrim(TestLine)
+						TestLine = Left(TestLine, len (TestLine) - 2 )
+						code = code & " & """ & replace_args (TestLine) & """"
 						Exit Do
 					Else 
-						code = code & " & """ & replace_args (fLine) & """ & VBCrLf"
+						code = code & " & """ & replace_args (TestLine) & """ & VBCrLf"
 					End If
+					If file.AtEndOfStream Then Exit Do
 				Loop
-				'sayerr "here block found:" & vbcrlf & "----------" & vbcrlf & code & vbcrlf & "----------"
-
-
+				'saydbg "@runtestfile_here here block found:" & vbcrlf & "----------" & vbcrlf & code & vbcrlf & "----------"
 				TestLine = ""
 			End If
 		End If	' If ppos > 0 Then		' Left <+ here block indicator 
@@ -1174,25 +1320,27 @@ End Function ' Function preprocess_cmdline (cmdline)
 		' Handle lines to be piped to the stdin of a slave process
 		' ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----O
 		' Lines beginning with a slave marker "_" or ">" are sent to stdin of slave app
-		' The lines are preprocessed with quote-doubling, {} curly-brace substitution and quote-enclosed
-		' TODO: if the slave itself is another lookfor instance, it should refuse these lines
-		'		at this point. Slave-of-slave or multi-slave scenarios don't seem worth while for now
-		' TODO: check slave-sending of multiline code, underscore-continued or <:multi-line:> code blocks
+		' In order to be sent off correctly by the ssend function, the lines are preprocessed
+		' with quote-doubling, {} curly-brace substitution and quote-enclosed
+		' NOTE: Syntax for command line options eg. "_ -lE <rest of line>"
+		' 		where ssend takes -lE as options and <rest of line> is sent to the slave's stdin
+		' TODO: if the slave itself is another lookfor instance, it should refuse these lines here.
+		'		Slave-of-slave or multi-slave scenarios don't seem worth supporting for now.
+		' TODO: TestCase: slave-sending of multiline code, underscore-continued or <:multi-line:> code blocks
 		If Left (code, 1) = "_" Or Left (code, 1) = ">" Then
 			code = Mid(code,2)
 			code = replace_args (code)
 			'code = Replace(code,"""","""""")
 			
-			'sayerr "Test output: ssend(" & code & ")"		' *** DEBUG
+			'saydbg "@runtestfile_ssend Test output: ssend(" & code & ")"		' *** DEBUG
 			'code = "ssend(" & code & ")"
 			
 			code = "ssend(""" & code & """)"
 		End If
-		
-
-		' "normal" Lines are executed locally ie. right here
+	
 
 		' SPOX (Single Point of Execution): Execute the line, or block of lines that were read in
+		' Note: except for "asterisk lines" for debugging that are executed above
 		' ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----O
 		If executeNow Then
 			' Boolean executenow is for handling  multiline input, currently always True ie. NOT USED
@@ -1227,8 +1375,8 @@ End Function ' Function preprocess_cmdline (cmdline)
 
 	file.Close()
 
-	'! say "processed code from file " & filename & ":"
-	'! say code
+	'! saydbg "@runtestfile processed code from file " & filename & ":"
+	'! saydbg "@runtestfile " & code
 
 
 	'	On Error Resume Next
@@ -1445,126 +1593,9 @@ _
  '_h1 Obsolete, Old, Deprecated and Forgotten
  ' Old stuff kept around in here for possible reference or, more likely, to be thrown out soon
  ' ====================================================================================================
- ' ====================================================================================================
-Private Sub old_RunTestFile(ByVal filename)
-	'! RunTestFile - Same as "Import" above, but some preprocessing is done:
-	'! ============================================================================
-	'! By default lines are not changed. They are executed as normal vbs code
-	'! Preprocessing happens as follows:
-	'! Lines beginning with "." or ">" are converted as follows:
-	'! 		1. All double quotes existing in the line are doubled, from " to ""
-	'!		2. Then, initial dot removed, the line is enclosed in ssend ("<line>")
-	'!		eg. The line: .setmem B7F8 "this is a string"
-	'!		is converted to: ssend ("setmem B7F8 ""this is a string""")
-	'!		and then executed.
-	'!		ssend will then pass the string in as a command line to the slave app
-	'!		with the doubled quotes converted back to single ones again
-	Dim fso, sh, file, code, dir
-
-	' Create my own objects, so the function is self-contained and can be called
-	' before anything else in the script.
-	Set fso = CreateObject("Scripting.FileSystemObject")
-	Set sh = CreateObject("WScript.Shell")
-
-	filename = Trim(sh.ExpandEnvironmentStrings(filename))
-	if InStr(filename, ".") = 0 then
-	   filename = filename & ".vbst"
-	end if
-	If Not (Left(filename, 2) = "\\" Or Mid(filename, 2, 2) = ":\") Then
-		' filename is not absolute
-		If Not fso.FileExists(fso.GetAbsolutePathName(filename)) Then
-			' file doesn't exist in the working directory => iterate over the
-			' directories in the %PATH% and take the first occurrence
-			' if no occurrence is found => use filename as-is, which will result
-			' in an error when trying to open the file
-			For Each dir In Split(sh.ExpandEnvironmentStrings("%PATH%"), ";")
-				If fso.FileExists(fso.BuildPath(dir, filename)) Then
-					filename = fso.BuildPath(dir, filename)
-					Exit For
-				End If
-			Next
-		End If
-		filename = fso.GetAbsolutePathName(filename)
-	End If
-	
-	TestLine = ""
-	code     = ""
-
-	Set file = fso.OpenTextFile(filename, 1, False)
-
-
-	Do While Not file.AtEndOfStream 
-		fLine 		= file.ReadLine		' An untrimmed fLine may be needed below in some cases
-		TestLine 	= Trim(fLine)
-		
-		' Handle "smiley bird"-enclosed code
-		' TODO: preprocess, so you can use vbsx code in a smiley bird block too
-		' vbsx code: .cmd <text to be preprocessed and enclosed in quotes>
-		' TODO: "here-docs in vbsx code"
-		If Left (TestLine, 2) = "<:" Then
-			Testline = Mid (TestLine, 3)
-			Do
-				' Handle case where right-smiley-bird is on same line
-				' Uncertain, TestCase: what if fLine has right-smiley followed by spaces(?)
-				If Right(Testline, 2) = ":>" Then
-					Testline = Left(TestLine, len (TestLine) - 2 )
-					Exit Do
-				End If
-				TestLine = TestLine & VBCrLf & Trim(file.ReadLine)
-			Loop
-		End If
-
-		Do While Right(TestLine, 2) = " _" Or TestLine = "_"
-			TestLine = RTrim(Left(TestLine, Len(TestLine)-1)) & " " & Trim(file.ReadLine)
-		Loop
-
-		' Lines beginning with a slave marker "_" or ">" are sent to stdin of slave app
-		' TODO: if the slave itself is another lookfor instance, it should refuse these lines
-		If InStr (TestLine, "_") = 1 or InStr (TestLine, ">") = 1 Then
-			TestLine = Mid(TestLine,2)
-			TestLine = replace_args (TestLine)
-			'TestLine = Replace(TestLine,"""","""""")
-			
-			'sayerr "Test output: ssend(" & TestLine & ")"		' *** DEBUG
-			'TestLine = "ssend(" & TestLine & ")"
-			
-			TestLine = "ssend(""" & TestLine & """)"
-		End If
-
-		' "normal" Lines are executed locally ie. right here
-
-		If true then 
-			RunVbshLine(TestLine)
-		else
-			On Error Resume Next
-				Err.Clear
-				ExecuteGlobal(TestLine)
-				If Err.Number <> 0 Then WScript.StdErr.WriteLine Trim(Err.Description & " (0x" & Hex(Err.Number) & ")")
-			On Error Goto 0
-		End If
-
-	'		code = code & TestLine & vbCrLf
-	Loop ' Do While Not file.AtEndOfStream 
-
-	'	code = code & "  "
-
-	file.Close()
-
-	'! say "processed code from file " & filename & ":"
-	'! say code
-
-
-	'	On Error Resume Next
-	'		Err.Clear
-	'		ExecuteGlobal(code)
-	'		If Err.Number <> 0 Then WScript.StdErr.WriteLine Trim(Err.Description & " (0x" & Hex(Err.Number) & ")")
-	'	On Error Goto 0
-
-	Set fso = Nothing
-	Set sh  = Nothing
-
-End Sub '! Private Sub old_RunTestFile(ByVal filename)
-
+ 
+ ' DELETED 2018-06-30: Private Sub old_RunTestFile(ByVal filename)
+ 
  ' ====================================================================================================
  '_h1 Includefiles that must be run at the end
  ' ====================================================================================================
