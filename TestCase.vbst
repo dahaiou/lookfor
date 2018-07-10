@@ -9,19 +9,27 @@ say "Including: " & inc1NameString
 ' ====================================================================================================
 '_h2 TC TestCase funtion globals
 ' ====================================================================================================
-Dim TCnum, TCtitle, TCnumber2, TCtitle2, TCsendlogOn, TCechoOn, TCsuccess, TCexpected, TCremain
- TCsendlogOn = False
- TCechoOn = False
+Dim TCnum			: TCnum				= 0			'! Testcase number eg. 1.3.7
+Dim TCtitle			: TCtitle			= 0			'! Testcase title (name)
+Dim TCsubNum		: TCsubNum			= 0			'! sub-Testcase number (plain number 1..n)
+Dim TCsubTitle		: TCsubTitle		= 0			'! sub-Testcase title (name)
+Dim bTCsendLogOn	: bTCsendLogOn		= False		'! bool: Log every command sent to Slave app on/off
+Dim bTCechoOn		: bTCechoOn			= False		'! bool: Echo on/off
+Dim bTCpass			: bTCpass			= False		'! bool: Testcase passed OK yes/no
+Dim sTCexpected		: sTCexpected		= ""		'! Expected string (regex)
+Dim sTCremain		: sTCremain			= ""		'! Remaining string
 
-Dim iTCTotCount, iTCPassCount, iTCFailCount		'! Count of Total/Passed/Failed TestCases
-iTCTotCount  = 0
-iTCPassCount = 0
-iTCFailCount = 0
+Dim TCtotCount		: TCtotCount  		= 0			'! Count of Testcases Executed or attempted
+Dim TCpassCount		: TCpassCount 		= 0			'! Count of Testcases Passed OK
+Dim TCfailCount		: TCfailCount	 	= 0			'! Count of Testcases Failed
+Dim TCSubTotCount	: TCsubTotCount  	= 0			'! Count of sub-Testcases Executed or attempted
+Dim TCsubPassCount	: TCsubPassCount 	= 0			'! Count of sub-Testcases Passed OK
+Dim TCsubFailCount	: TCsubFailCount 	= 0			'! Count of sub-Testcases Failed
 
-ReDim aTCsh(4), aTCfs(4)		'! Array of Shell objects and File System Objects respectively
-Dim iTCshCount, iTCfsCount
-iTCshCount = 0
-iTCfsCount = 0
+Dim oTCfs			: Set oTCfs			= Nothing	'! object: FileSystem object for manipulating TC log files
+
+ReDim aTClogFiles (4)								'! array: open TClogFiles (not sure if needed)
+Dim   TClogFilesCount	: TClogFilesCount = 0		'! Count of open TClogFiles  (not sure if needed)
 
 
  Dim oTCregx, oTCmatch
@@ -30,14 +38,14 @@ iTCfsCount = 0
  <:
 
  '! Open TestCase Logfile and Shell
- Sub TCOpenLogFile (fname)
+ Sub TCopenLogFile (fname)
 	' Handle opts: -a append, -r rename (earlier logfiles)...
 	' Open logfile and shell
 	' Attach them to aTCsh and aTCfs arrays
  End Sub
 
  '! Close TestCase Logfile and Shell
- Sub TCOpenLogFile (n)
+ Sub TCcloseLogFile (n)
 	' Handle opts: ...
 	' Unattach from aTCsh and aTCfs arrays
 	' Close the files
@@ -94,22 +102,81 @@ iTCfsCount = 0
 
 <:
 
+' Prints the time at parse-time, ie. time when this code was read in
 Sub saytime1()
  .say Current time1: {Time}
 End Sub
 
+' Prints the literal string "Current time1: {Time}" without substitution of {Time}
 Sub saytime2()
  say "Current time1: {Time}"
 End Sub
 
+' Prints the current time when executed, 
 Sub saytime3()
  say "Current time1: " & Time
 End Sub
 
 
+' ====================================================================================================
+' ====================================================================================================
+' ====================================================================================================
+'What I want:
+' 1. If logfile not open eg. On starting test run:
+' 	a.Create TClogFileName (jst take samename.tclog)
+' 	b. Open the file for overwriting or appending (options to rename, append, overwrite)
+'		Errors:
+'		b1. invalid filename
+'		b2. permission violation
+'		b3. open failed, other reasons (could be a few)
+' 	c. Write initial blurb: Date, Time, name of test object, params(?)
+' 2. If logfile already open:
+' 	a. Write current log result:
+'		a1. Testcase number
+'		a2. Testcase name
+'		a3. Timestamp (options: each main TC, each sub-TC)
+'		a4. Detail on what was tested (options: level of detail)
+'		a5. Any comment texts, from TC file
+'		a6. TC result: OK, Fail, other (?)
+'		a7. Update statistics: TCokCount, TCfailCount, ...Count
+'		a8. 
+' 	b. For every write
+'		b1. Turn Error checking on
+'		b2. If error just quit the whole run: Write error could be:
+'			b2a. File thought open but wasn't
+'			b2b. Permission violation
+'			bcc. Disk full
+'			b2d. Other...
+'		b3. Update housekeeping...
+' 3. If at end of test run or chapter:
+' 	a. Write out statistics 
+' 	d. End and close
+ 
+' ====================================================================================================
+Sub TCwriteLogFile (ByRef filePath, ByRef s)
+	Const ForReading = 1, ForWriting = 2, ForAppending = 8
+	Dim fso, sh, file, fileText, dir
+	Dim i, k
+	writeHistoryFile = ""
+
+	if filePath = "" then
+		sayerr "Error (TCwriteLogFile): FileName not defined."
+		exit Sub
+	end if
+
+	Set fso = CreateObject("Scripting.FileSystemObject")
+	Set file = fso.OpenTextFile(filePath, ForAppending, True)
+
+	file.writeLine(s)
+	
+	file.Close
+	Set fso = Nothing
+
+end Sub ' Sub TCwriteLogFile ()
+:>
 
 
-
+<:
  '_h2 TCNew (s) - Start New TestCase: Reset relevant bookkeeping vars and announce in log output
  ' ====================================================================================================
 Sub TCNew (s)
