@@ -188,6 +188,10 @@ End Class
 Set MyErr = New ErrCopy
 MyErr.Reset
 
+' Create Global Shell and FileSystem objects, always available from anywhere
+Dim GoSh :Set GoSh  = CreateObject("WScript.Shell")
+Dim GoFS :Set GoFS  = CreateObject("Scripting.FileSystemObject")
+
 getArgs
 
 '! Get command-line arguments (from the DOS/Win command line)

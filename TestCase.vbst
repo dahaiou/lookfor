@@ -5,14 +5,14 @@ inc1NameString = IncludeName & " V" & IncludeVersion
 say "Including: " & inc1NameString
 
 ' ====================================================================================================
-'_h1 TC - TestCase funtions (for automated testing run from .vbst files)
+'_h1 TC - TestCase functions (for automated testing run from .vbst files)
 ' ====================================================================================================
-'_h2 TC TestCase funtion globals
+'_h2 TC TestCase function globals
 ' ====================================================================================================
 Dim TCnum			: TCnum				= 0			'! Testcase number eg. 1.3.7
 Dim TCtitle			: TCtitle			= 0			'! Testcase title (name)
 Dim TCsubNum		: TCsubNum			= 0			'! sub-Testcase number (plain number 1..n)
-Dim TCsubTitle		: TCsubTitle		= 0			'! sub-Testcase title (name)
+Dim TCsubTitle		: TCsubTitle		= ""		'! sub-Testcase title (name)
 Dim bTCsendLogOn	: bTCsendLogOn		= False		'! bool: Log every command sent to Slave app on/off
 Dim bTCechoOn		: bTCechoOn			= False		'! bool: Echo on/off
 Dim bTCpass			: bTCpass			= False		'! bool: Testcase passed OK yes/no
@@ -27,6 +27,10 @@ Dim TCsubPassCount	: TCsubPassCount 	= 0			'! Count of sub-Testcases Passed OK
 Dim TCsubFailCount	: TCsubFailCount 	= 0			'! Count of sub-Testcases Failed
 
 Dim oTCfs			: Set oTCfs			= Nothing	'! object: FileSystem object for manipulating TC log files
+Dim oTClogFile		: Set oTClogFile	= Nothing	'! TC log file (single one, if not using array of logfiles)
+Dim TCfileName		: TCfileName		= ""		'! Name of Test File being executed
+Dim TClogFileName	: TClogFileName		= ""		'! Name of Logfile being written to
+
 
 ReDim aTClogFiles (4)								'! array: open TClogFiles (not sure if needed)
 Dim   TClogFilesCount	: TClogFilesCount = 0		'! Count of open TClogFiles  (not sure if needed)
@@ -35,22 +39,64 @@ Dim   TClogFilesCount	: TClogFilesCount = 0		'! Count of open TClogFiles  (not s
  Dim oTCregx, oTCmatch
  Set oTCregx  = Nothing
  Set oTCmatch = Nothing
+
+<:
+
+ If Not TypeName (oTCfs) = "FileSystemObject" Then
+	set oTCfs = Nothing
+	set oTCfs = CreateObject("Scripting.FileSystemObject")
+ End If
+:>
+
  <:
 
- '! Open TestCase Logfile and Shell
+ '! Open TestCase Logfile
  Sub TCopenLogFile (fname)
 	' Handle opts: -a append, -r rename (earlier logfiles)...
-	' Open logfile and shell
-	' Attach them to aTCsh and aTCfs arrays
+	' Open logfile
+	' Additional housekeeping to activate logging, if any
  End Sub
 
  '! Close TestCase Logfile and Shell
  Sub TCcloseLogFile (n)
 	' Handle opts: ...
-	' Unattach from aTCsh and aTCfs arrays
 	' Close the files
 	' Release the objects
- End Sub
+	' Additional housekeeping if any
+End Sub
+
+'!@ref Tom Laveda 2003, http://computer-programming-forum.com/59-vbscript/bc9ef89b8cb2b879.htm
+Function dos (DOSCmd)
+  Dim alines, sCmd, stemp, ofs, oWS
+  On Error Resume Next
+  '  sCmd = """%comspec%"" /c ""%comspec%"" /e:4096 /c " & DOSCmd & " >"
+  sCmd = "cmd.exe /c cmd.exe /e:4096 /c " & DOSCmd & " >"
+  set ofs = CreateObject("Scripting.FileSystemObject")
+  stemp = ofs.GetTempName
+  set oWS = CreateObject("Wscript.Shell")
+  stemp = oWS.Environment("PROCESS")("TEMP") & "\" & stemp
+  'sTemp = "dos.tmp"		' #### DEBUG
+  'sayerr "#### Running: oWS.Run " & sCmd & Chr(34) & sTemp & Chr(34) & " 2>&1, 0, true"		' #### DEBUG
+  oWS.Run sCmd & Chr(34) & sTemp & Chr(34) & " 2>&1", 0, true
+
+  ' The Original function MSDOS splits each line of outupt into the array alines
+  ' alines = Split(ofs.OpenTextFile(stemp).ReadAll, vbNewline)
+  ' ReDim Preserve alines(Ubound(alines) - 1)
+  ' if Err Then aLines = Split(Empty)
+
+  ' Here, we just return the output directly as a multiline string
+  dos = ofs.OpenTextFile(stemp).ReadAll
+  ofs.DeleteFile stemp
+  if Err Then sayerr "DOS Error"	' This seems to have no effect after redirecting dos errout to stdout
+
+  ' Dirty hack: Fix chr(255) which plagues redirected dos output due to codepage differences
+  dos = Replace(dos,chr(255)," ")	
+End Function 
+
+Sub saydos (s)
+	say dos(s)
+End Sub
+
 :>
 
 <:
@@ -71,7 +117,7 @@ Dim   TClogFilesCount	: TClogFilesCount = 0		'! Count of open TClogFiles  (not s
 'If GlobalDiscardNextBlock Then dummy = 0
 
 'If Global_sPipeClass_defined Then GlobalDiscardNextBlock = True
-<:
+<: 'sPipeClass
  ' '!: Silly String Pipe functions - NB: Initial '!: Generates "Direct" .vbst parse-time comment output
  '# If Global_sPipeClass_defined Then GlobalDiscardThisBlock = True
   Global_sPipeClass_defined = True
@@ -191,6 +237,8 @@ Sub TCNew (s)
 	'.say TCNew saying myLocVar1:{myLocVar1}
     '.say TCNew saying myLocVar1:{myLocVar1}
 
+	' Close and reopen TClogfile for each new TestCase (Only one TC worth of log output is lost in case of error)
+
 
 	' Set data, Note these vars are all global, reflecting current test case and sub-case
 	TCnum     = sArr(0)
@@ -210,7 +258,7 @@ End Sub ' Sub TCNew (s)
 ' TODO: Outfiles NIY, Also: control verbosity level with global variables
 Sub TClog (s)
 	say s
-	'NIY:write2logfile s
+	oTClogFile.WriteLine(s)
 End Sub ' Sub TClog (s)
 
 '_h2 TCcheckResult (line, expected) - Check result of TestCase, update bookkeeping and write log outputs

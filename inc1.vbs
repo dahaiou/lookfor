@@ -80,7 +80,7 @@ Sub ssend (ByRef cmdline)
 		'say "with regex:"
 		oRx.global = true
 		' oRx.ignorecase = false		' not needed
-		oRx.pattern = "\n"
+		oRx.pattern = VBCrLf&"|\n"
 		TClog SlaveOutFlag & oRx.Replace (FoundLine, VBCrLf & SlaveOutFlag)
 	End If
 
@@ -547,8 +547,8 @@ Sub getopts (optstr, ByRef cmdline, ByRef opts_found)
 	saydbg "@getopts Initial restline='" & restline & "'"
 
 	'oRegOpts.pattern = "^\s*([a-zA-Z]+\w*)?"				' Regex to remove initial command token, if any
-'	oRegOpts.pattern = "^(\s*[^-\s][\S]*[\s]*)?"				' Regex to remove initial command token, if any
-'	oRegOpts.pattern = "^\s*([^-\s][\S]*)?\s*"				' Regex to remove initial command token, if any
+	'oRegOpts.pattern = "^(\s*[^-\s][\S]*[\s]*)?"				' Regex to remove initial command token, if any
+	'oRegOpts.pattern = "^\s*([^-\s][\S]*)?\s*"				' Regex to remove initial command token, if any
 	oRegOpts.pattern = "^(\s*[^-\s][\S]*)?"				' Regex to remove initial command token, if any
 	' NOTE: cmd token = wspace plus ANY non-blank sequence that does NOT begin with dash plus trailing wspace
 	' anything up to first <-option> or second token whichever comes first
@@ -767,16 +767,14 @@ Private Sub RunTest(ByVal filename)
 	'		extension .vbst is added unless given
 	'		other extensions (dot anywhere in filename) are preserved
 	'		filename. overrides: dot is removed and no extension used
-	' log file is filename.vbstlog
-	'		TODO: nifty way to allow other extensions
+	' log file is filename.log
+	'		TODO: nifty way to specify other extensions eg. .vbstlog
 	'		Initial test stamp logged: Date filename etc. 
 	'		previous logfile is overwritten
 	'		TODO: option to rename previous logfile
 	'		TODO: option to append to logfile instead
-	'		logfile is kept open through to the end of execution
+	'		logfile is closed and reopened for append for each new TestCase to minimise loss on deadlock or error
 	'		log output is flushed continuously on every write
-	'		TODO: option to append to logfile and close on every write
-	'				(avoids losing log output on deadlock)
 	'		TODO: options for summary/normal/detailed log output
 	'				detailed: 	- Initial presentation blurb for each test case
 	'							- "comment" log commands eg. "setting up for test xyz"
@@ -815,6 +813,44 @@ Private Sub RunTest(ByVal filename)
 	' console output:
 	'		Complete text seen, same as logfile
 	'		TODO: options for summary/normal/detailed console output
+	' ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----O
+	Const ForReading = 1, ForWriting = 2, ForAppending = 8
+	Dim testFileName, logFileName, testfnamepart, testfbasenamepart, testflogext, testDirPath
+
+	'!@Todo: Testfile in current dir by default (not much sense in searching for it in env:PATH)
+	'!@Todo: Logfile in current dir by default, even if Testfile is not. option to send it to dir of testfile
+	testflogext = "log"
+
+	' Get fullpath of input file and logfile:
+
+	TCfileName = findFileName(Trim(filename))
+	if Trim (TCfileName) = "" Then Exit Sub
+
+	testFNamepart = GoFS.GetFileName (TCfileName)
+	testFBaseNamepart = GoFS.GetBaseName (TCfileName)
+	testDirPath = Left(TCfileName, Len (TCfileName) - Len (testfnamepart))
+	TClogFileName = testDirPath & testFBaseNamepart & "." & testflogext
+
+	saydbg "@runtest TCfileName    : " & TCfileName
+	saydbg "@runtest TClogFileName : " & TClogFileName
+	' ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----O
+	' Open oTClogFile
+	' Todo: if old logfiles present, choose between: overwrite, append, rename
+
+	Set oTClogFile = GoFS.OpenTextFile (TClogFileName, ForWriting, True )
+	'If Err Then Errorhandling...
+
+	TClog "Lookfor Version XX, Running Test File on: " & date & " " & time
+	TClog "TCfileName    : " & TCfileName
+	TClog "TClogFileName : " & TClogFileName
+	'TClog ""
+
+	runTestFile TCfileName
+
+	' ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----O
+	'Cleanup
+	oTClogFile.Close
+	Set oTClogFile = Nothing
 
 End Sub ' Private Sub RunTest(ByVal filename)
 
@@ -994,6 +1030,68 @@ Function preprocess_cmdline (cmdline)
 End Function ' Function preprocess_cmdline (cmdline)
 
 
+'! Find the first occurrence of the given filename from the working directory
+'! or any directory in the %PATH%.
+'!
+'! @param  filename   Name of the file to find.
+'!
+Private Function findFileName(ByVal filename)
+	Dim fso, sh, file, code, dir, opts_found, opt_n
+	' opt -n : accept non-existant filename as if it existed in current dir
+	'			otherwise return empty string
+	opts_found = "" 
+	getopts ":n", filename, opts_found
+	opt_e = find_opt ("n", opts_found)
+
+
+	' Create my own objects, so the function is self-contained and can be called
+	' before anything else in the script.
+	Set fso = CreateObject("Scripting.FileSystemObject")
+	Set sh = CreateObject("WScript.Shell")
+
+	' Find filename
+	' --------------------------------------------------------------------------------
+	' - Start out with the filename variable
+	' - If it does not have a filename extension add ".vbst"
+	'		TODO: current error: a dot anywhere in an absolute fname would be seen as an extension
+	' - If filename is absolute (ie. contains full path) use that and quit searching
+	' - If file exists in current directory, use the corresponing absolute fname and quit searching
+	' - Otherwise, check for filename in each directory in env variable PATH
+	' - If found, use the corresponing absolute fname and quit searching
+	' - If not found, search ends, and "absoluted" fname in current dir is used anyway,
+	'	in which case a subsequent open will fail
+	' - Open the absolute fname resulting from the above steps
+	filename = Trim(sh.ExpandEnvironmentStrings(filename))
+	if InStr(filename, ".") = 0 then filename = filename & ".vbst"
+	shortfilename = filename
+	If Not (Left(filename, 2) = "\\" Or Mid(filename, 2, 2) = ":\") Then
+		' filename is not absolute
+		If Not fso.FileExists(fso.GetAbsolutePathName(filename)) Then
+			' file doesn't exist in the working directory => iterate over the
+			' directories in the %PATH% and take the first occurrence
+			' if no occurrence is found => use filename as-is, which will result
+			' in an error when trying to open the file
+			For Each dir In Split(sh.ExpandEnvironmentStrings("%PATH%"), ";")
+				If fso.FileExists(fso.BuildPath(dir, filename)) Then
+					filename = fso.BuildPath(dir, filename)
+					Exit For
+				End If
+			Next
+		End If
+		filename = fso.GetAbsolutePathName(filename)
+	End If
+
+	If Not opt_e And Not fso.FileExists(filename) Then filename = ""
+		
+	findFileName = filename
+
+	Set fso = Nothing
+	Set sh = Nothing
+End Function '! Private Function findFileName(ByVal filename)
+
+
+
+
  ' ====+====1====+====2====+====3====+====4====+====5====+====6====+====7====+====8====+====9====+====0
  Private Sub RunTestFile (ByVal filename)
  ' ====+====1====+====2====+====3====+====4====+====5====+====6====+====7====+====8====+====9====+====0
@@ -1091,6 +1189,9 @@ End Function ' Function preprocess_cmdline (cmdline)
 	'	  PLEASE DO NOT USE this. It is cumbersome and doesn't seem to work right. Use multi-block instead
 	'	  Left in for now, for possible compatibility issues.
 	'		
+	'		
+	'!		@Todo Sub RunTestFile:Implement a state machine for handling line-by-line input 
+	'!				making it possible to run also from the command line (good for testing)
 
 	Dim exitOnError, fso, sh, file, code, dir, executeNow, nonExeCount, fLine, TestLine, qpos, ppos
 
@@ -1112,6 +1213,15 @@ End Function ' Function preprocess_cmdline (cmdline)
 
 	' Find filename and open it
 	' --------------------------------------------------------------------------------
+	' - Start out with the filename variable
+	' - If it does not have a filename extension add ".vbst"
+	'		TODO: current error: a dot anywhere in an absolute fname would be seen as an extension
+	' - If filename is absolute (ie. contains full path) use that and quit searching
+	' - If file exists in current directory, use the corresponing absolute fname and quit searching
+	' - If not, check for it in each directory in env variable PATH
+	' - If found, use the corresponing absolute fname and quit searching
+	' - If not found, search ends, and current dir "absoluted" fname is used anyway, and open will fail
+	' - Open the absolute fname resulting from the above steps
 	saydbg "@all Initial filename="&filename
 	filename = Trim(sh.ExpandEnvironmentStrings(filename))
 	if InStr(filename, ".") = 0 then filename = filename & ".vbst"
@@ -1139,6 +1249,7 @@ End Function ' Function preprocess_cmdline (cmdline)
 	' Main loop: Read from file, line by line
 	' ----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+
 	Do While Not file.AtEndOfStream 
+' >>>>>>>>>>>>>>>>>>>>> Read Input: Mode = Plain   >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 		fLine 		= file.ReadLine		' An untrimmed fLine may be needed below in some cases
 		flineno = flineno + 1
 		TestLine 	= rxLTrim(fLine)
@@ -1230,6 +1341,7 @@ End Function ' Function preprocess_cmdline (cmdline)
 				If right_smiley_found Or file.AtEndOfStream Then Exit Do
 
 				' Get next line
+' >>>>>>>>>>>>>>>>>>>>> Read Input: Mode = Multiline   >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 				fline = file.ReadLine
 				flineno = flineno + 1
 				TestLine = fline
@@ -1286,6 +1398,7 @@ End Function ' Function preprocess_cmdline (cmdline)
 
 
 				Do
+' >>>>>>>>>>>>>>>>>>>>> Read Input: Mode = Here-block   >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 					fLine = file.ReadLine
 					flineno = flineno + 1
 					TestLine = fLine
@@ -1313,6 +1426,7 @@ End Function ' Function preprocess_cmdline (cmdline)
 		' TODO: Analyse possible conflict between Underscore-continued lines and smiley-bird blocks
 		if len (code) = 0 Then code = TestLine
 		Do While Right(code, 2) = " _" Or Right(code, 3) = VBCrLf & "_"  Or code = "_"
+' >>>>>>>>>>>>>>>>>>>>> Read Input: Mode = Line-continuation   >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 			code = RTrim(Left(code, Len(code)-1)) & " " & Trim(file.ReadLine)
 			flineno = flineno + 1
 		Loop
