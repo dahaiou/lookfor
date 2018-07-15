@@ -502,6 +502,9 @@ Sub RunVbshLine (line)
 		
 		ElseIf Left(line, 1) = ":" Then
 			say "Test output(preprocess_cmdline): " & preprocess_cmdline (mid(line,2))
+		ElseIf Left(line, 1) = "," Then
+			'RunVbshLine preprocess_cmdline (mid(line,2))
+			myExecuteGlobal cmdsubst (line)
 		ElseIf Left(line, 1) = "." Then
 			'RunVbshLine preprocess_cmdline (mid(line,2))
 			myExecuteGlobal preprocess_cmdline (mid(line,2))

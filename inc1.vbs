@@ -52,6 +52,16 @@ Function rxLTrim (s)
 	rxLTrim=oRxLTrim.replace(s,"")
 End Function
 
+Private oRxRTrim : Set oRxRTrim = NewRegExp("[^\S\n]*$", True, True)
+Function rxRTrim (s)
+	rxRTrim=oRxRTrim.replace(s,"")
+End Function
+
+Function rxTrim (s)
+	rxTrim=rxRTrim(rxLTrim(s))
+End Function
+
+
 Sub ssend (ByRef cmdline)
 	'! Usage: ssend -E -l <line>
 	'!@param -E - Echo off (on is default) Do not echo return text from slave app (but read into FoundLine)
@@ -854,6 +864,7 @@ Private Sub RunTest(ByVal filename)
 
 End Sub ' Private Sub RunTest(ByVal filename)
 
+
 sub sppa(s): say replace_args(s): end sub		' *** DEBUG
 
 ' ====================================================================================================
@@ -912,8 +923,8 @@ Function replace_args (argline)
 	
 			On Error Resume Next
 			Err.Clear
-			' say "ExecuteGlobal (""GtempVar=""&trim("&s&"))"		' *** DEBUG
-'			ExecuteGlobal "GtempVar="&trim(s)
+			'say "ExecuteGlobal (""GtempVar=""&trim("&s&"))"		' *** DEBUG
+			'ExecuteGlobal "GtempVar="&trim(s)
 			ExecuteGlobal "GtempVar="""" & "&trim(s)
 			' GtempVar = Eval(s)
 			If Err.Number <> 0 Then
@@ -957,6 +968,7 @@ Function replace_args (argline)
 
 	replace_args = argl2
 
+	' ====================================================================================================
 End Function ' Function replace_args (argline)
 
 ' Position of first non-space char in s
@@ -1105,7 +1117,7 @@ End Function '! Private Function findFileName(ByVal filename)
 	'
 	'  1. "Dot substitution": Lines beginning with dot "." are converted as follows:
 	'     Think of initial "." dot from a lazy-user perspective, such as: 
-	'        Please run this command cmd ... for me, and btw I was too lazy to write quotes, so
+	'        Please run this command cmd ... for me, and btw I am too lazy to write punctuation, so
 	'        could you please add quotes around whatever comes after the command, and while you're
 	'        at it, I'd appreciate if you would substitute expressions within curly braces too.
 	'     This translates into the following steps:  

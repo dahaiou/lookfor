@@ -100,6 +100,190 @@ End Sub
 :>
 
 <:
+Private oRxSSubst : Set oRxSSubst = NewRegExp("\${([a-zA-Z]\w*)}|\$([a-zA-Z]\w*)", True, True)
+Private oRxShSubst : Set oRxShSubst = NewRegExp("\%{(\w+)}|\%(\w+)%?", True, True)
+Function ssubst (s)
+	'Substitute variables in a string. Example, the string:
+	'	"It is now $time and $linecount lines have been read so far"
+	' Is turned into:
+	'	"It is now " & time & " and " & linecount & " lines have been read so far"
+	Dim argstr, remain
+	argstr = ""
+	remain = ""
+
+	'Gosh.ExpandEnvironmentStrings("%PATH%")
+	oRxSSubst.Global = True
+	ssubst = oRxSSubst.Replace(s, """ & $1$2 & """)
+	oRxShSubst.Global = True
+	ssubst = oRxShSubst.Replace(ssubst, """ & Gosh.ExpandEnvironmentStrings(""%$1$2%"")  & """)
+	'First case: s did not have initial quote but ssubst does.
+	'	This means s began with a $substitution and we must supply another initial quote for things to work
+	if Not Left(rxLtrim(s),1) = """" And Left(rxLtrim(ssubst),1) = """" Then ssubst = """" & ssubst
+	'Second case: s ended with a $substitution and we must supply an extra quote at the end
+	if Not Right(rxRtrim(s),1) = """" And Right(rxLtrim(ssubst),1) = """" Then ssubst = ssubst & """"
+
+	'Third case: Supply initial quote if not present.
+	if Not Left(rxLtrim(ssubst),1) = """" Then ssubst = """" & ssubst
+	'Fourth case: Supply final quote if not present
+	if Not Right(rxRtrim(ssubst),1) = """" Then ssubst = ssubst & """"
+End Function ' Function ssubst (s)
+
+'Private oRxIniPunct : Set oRxIniPunct = NewRegExp("^[^\S\n]*[,.;:_\\\|\@\#\~!$%&=?+-*/]", True, True)
+Private oRxIniPunct : Set oRxIniPunct = NewRegExp("^[^\S\n]*[,.;:_\\\|\@\#\~!$%&=?\+\-\*\/]", True, True)
+Private oRxIniToken : Set oRxIniToken = NewRegExp("^([^\S\n]*[a-zA-Z]\w*)([\s\S]*)$", True, True)
+Private oRxUntilSep : Set oRxUntilSep = NewRegExp("^([^{""]*)([\s\S]*)$", True, True)
+Function cmdsubst (s)
+	Dim token, argstr, remain
+	token = ""
+	argstr = ""
+	remain = ""
+
+	' Remove initial (only one) punctuation character, any of ",.;:_\|@#~!"·$%&=?¿+-*/"
+	remain = oRxIniPunct.Replace (s, "")
+	If oRxIniToken.Test (remain) Then
+		token  = oRxIniToken.Replace (remain, "$1")
+		remain = oRxIniToken.Replace (remain, "$2")
+	End If
+	If Left(remain,1) = " " Then remain = Mid(remain, 2)		' Remove one initial space if present
+
+	'While Not remain = ""
+
+	'Wend
+	
+
+
+
+	'remain = ssubst(remain)
+	remain = argsubst(remain)
+
+	'sayq "token="&token
+	'sayq "remain="&remain
+
+	cmdsubst = token & " " & remain
+
+End Function ' Function cmdsubst (s)
+
+:>
+
+
+<:
+
+
+Private oRxSplitmark : Set oRxUntilSep = NewRegExp("^([^\$\%\{\""]*)([\s\S]*)$", True, False)
+Private oRxSplitDquote : Set oRxSplitDquote = NewRegExp("^([^""]*)([\s\S]*)$", True, False)
+Private oRxSplitCurly : Set oRxSplitCurly = NewRegExp("^([^}]*)([\s\S]*)$", True, False)
+FUnction argsubst(s)
+	Dim result, leftstr, remain, state
+	result = ""
+	leftstr = ""
+	remain = s
+	state = 0		' 0=normal, 1=doublequote, 2=singlequote, 3=curly, 4=dollar, 5=percent, 
+
+	i=0
+	Do While Not remain = ""
+		'say "=============================="
+		'sayq "remain="&remain
+		leftstr = oRxUntilSep.Replace(remain, "$1")
+		remain = oRxUntilSep.Replace(remain, "$2")
+		
+		'sayq "result="&result
+		'sayq "leftstr="&leftstr
+		'sayq "remain="&remain
+		splitmark=Left(remain, 1)
+		'say  "splitmark="&splitmark
+
+		' pass the "normal text" in leftstr to the "left side" ie. append it to result
+		' NOTE: In some special cases the last character is removed in the logic below
+		result = result & leftstr		
+										
+
+		' "escaped" splitmark found ie. it does not count
+		' just pass the splitmark to the "left side" ie. append it to result	
+		'!@Todo It is NOT possible to have a literal backslash just before a splitmark.
+		'!		It could be solved by requiring double backslash, but this is not really acceptable
+		'!		since you sometimes need backslashes galore in DOS-style filepaths
+		'!		Or doubling them just in the special case where followed by a splitmark, which is a dirty workaround
+		'!		So we want "text1\text2\text3\etc" handled as "normal text" ie. appended as-is
+		'!		But also "text1\$text2" to be appended as "text1$text2"
+		'!		and as a workaround, "text1\\$text2" as "text1\$text2"
+		'!		But then if we should want "text1\$var1" appended with var1 substituted it simply can't be done
+		'!		Solution: use ^ as an escape cancellation character, removed if found prior to a splitmark char.
+		'!			... then "text1\^$var1" appends "text1\" & var1 & " with var1 substituted
+		'!			NOW. if you DO want up-arrow in that position, it just needs to be doubled
+		'!			so "text1\^^$var1" appends "text1\^" & var1 & " ie. including ^ up-arrow and with var1 substituted
+		If Right(result,2) = "^" Then
+			' Remove the escape-cancellation character ^ (but if it was doubled ^^ the first one is left in)
+			result = Left(result,len(result - 1))
+		End If
+
+		' NOTE: For escape-cancellation to work it is IMPORTANT to check end of leftstr here, not of result, 
+		If Right(leftstr,1) = "\" Then
+			' first remove the escape-mark (backslash) from end of result
+			' then append the splitmark as-is
+			result = Left(result,len(result - 1)) & splitmark
+			remain = Mid(remain, 2)		' remove splitmark from remaining string
+	
+		ElseIf splitmark = """" Then	' Handle double-quote substring
+			result = result & """"""	' "double" the double-quote and append to result
+			sayq "at start of quote, result="&result
+			remain = Mid(remain, 2)		' remove splitmark from remaining string
+			' Find closing double-quote
+			leftstr = oRxSplitDquote.Replace(remain, "$1")
+			remain = oRxSplitDquote.Replace(remain, "$2")
+			result = result & leftstr & """"""		' Append quoted string closed with doubled close-quote
+			sayq "at end of quote, result="&result
+			remain = Mid(remain, 2)		' remove close-quote from remaining string
+	
+		ElseIf splitmark = "'" Then	'Handle single-quote ie. comment string until eol
+			remain = ""			' Empty remain will cause immediate exit from loop
+								' NOTE: multi-line input not handled here. If so we need to delete only to eol and continue
+
+		ElseIf splitmark = "$" Then	'Handle $varname and ${varname}
+			' Extract the first $variable substitution from remain
+			' The logic below depends on knowing the fact that the first substitution begins in position 1
+			' and after substitution the first double-quote will be in char position 1
+			oRxSSubst.Global = False
+			remain = oRxSSubst.Replace(remain, """ & $1$2 & """)	' Do just one $substitution (at pos 1 in remain)
+			qpos = InStr(2, remain, """")			' Find pos of second quote char (we know first one is in pos 1 )
+			'sayq "$substitution done, remain="&remain
+			result = result + Left(remain, qpos)	' append the variable substitution to result
+			remain = Mid(remain, qpos + 1)			' and remove it from the beginning of remaining str
+			'sayq "...and remaining remain="&remain
+		
+
+		ElseIf splitmark = "%" Then	'Handle %varname, %varname%, %{varname}
+			' Extract the first %variable substitution from remain
+			' The logic below depends on knowing the fact that the first substitution begins in position 1
+			' and after substitution the first double-quote will be in char position 1
+			oRxShSubst.Global = False
+			' Do just one $substitution (at pos 1 in remain)
+			remain = oRxShSubst.Replace(remain, """ & Gosh.ExpandEnvironmentStrings(""%$1$2%"")  & """)
+			qpos = InStr(2, remain, ")")			' First right bracket (we know the quote char we want comes right after that )
+			qpos = InStr(qpos, remain, """")		' Find pos of the final quote char at end of substitution
+			'sayq "%substitution done, remain="&remain
+			result = result + Left(remain, qpos)	' append the variable substitution to result
+			remain = Mid(remain, qpos + 1)			' and remove it from the beginning of remaining str
+			'sayq "...and remaining remain="&remain
+
+		ElseIf splitmark = "{" Then	'Handle curly-brace expression {expr}
+			' Don't handle for now, just move across to left-side
+			result = result & "{"
+			remain = Mid(remain, 2)
+
+		End If
+
+		'remain = Mid(remain, 2)
+		i=i+1
+		if i > 12 Then Exit Do
+	Loop
+	
+	result = """" & result & """"
+	'sayq "result="&result
+	argsubst = result
+End Function' Function argsubst(s)
+:>
+
+<:
  '! : Checking Global_sPipeClass_defined
  If Global_sPipeClass_defined Then
 	sayerr "Warning: Class cannot be redefined. Skipping sPipeClass."
@@ -161,6 +345,12 @@ End Sub
 ' Prints the current time when executed, 
 Sub saytime3()
  say "Current time1: " & Time
+End Sub
+
+' Prints the current time when ??? 
+Sub saytime4()
+	a=ssubst ("Current time1: $Time")
+	say a
 End Sub
 
 
