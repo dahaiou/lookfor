@@ -21,7 +21,7 @@ Version  = "0.06"				'_Version
 '!               - Run automated test scripts (extension .vbst)
 '!               - Log results to logfile (.vbstlog)
 '! ====================================================================================================
-'_* Copyright, authorship and license apply as stated, EXCEPT for:
+'_* Copyright, authorship and license apply as stated, EXCEPT for: 
 '   various snippets from other sources, noted in comments in each case
 '_Usage      :: See the help_message function below
 
