@@ -2,7 +2,7 @@
 ' Global Declarations and Initialisation
 ' =================================================================================================
 IncludeName = "inc1.vbs"
-IncludeVersion = "0.06-01"
+IncludeVersion = "0.07-01"
 inc1NameString = IncludeName & " V" & IncludeVersion
 say "Including: " & inc1NameString
 

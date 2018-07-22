@@ -7,13 +7,13 @@ ProgName = "lookfor"
 '!_Copyright   : (C) 2018, Henrik Soderstrom*
 '!_License     : GPL2* (except for various snippets as noted in comments)
 '! before running release, put current date in next line. Afterwards put back the mm-dd:s '#### <DEBUGLINE>
-'!_Date        : 2018-07-22
+'!_Date        : 2018-mm-dd
 '! after running release, put current date in next line.                   '#### <DEBUGLINE>
-'!_Date        : 2018-07-dd-                                               '#### <DEBUGLINE>
+'!_Date        : 2018-07-22-                                               '#### <DEBUGLINE>
 '! before running release, remove the "p_" in next two lines.              '#### <DEBUGLINE>
 '! after running release, put the "p" back and step revision.              '#### <DEBUGLINE>
-Version  = "0.06"				'_Version
-'!_Version     : 0.06                          #### <DEBUGLINE>
+Version  = "0.07p_"				'_Version
+'!_Version     : 0.07p_                          #### <DEBUGLINE>
 '!_Description : Automated running/testing of win/dos console apps 
 '!               (similar to expect, but in VBScript rather than tcl)
 '!               - Start console app and send command lines to it (stdin)
@@ -180,6 +180,11 @@ Version  = "0.06"				'_Version
 '		o Mechanisms to change the child process prompt with just one command
 '		  ie. with one command change both: a.) Child's prompt string, by command to child
 '		  AND b.) prompt pattern used by Parent when reading from slave's stdout
+'		 
+' V0.07 Started 2018-07-22 with Package:inc.vbs_V0.07-01
+'		(as well as TestCase.vbst V0.07-01, misc.vbst V0.07-01)
+' 		o During development _Preliminary_ V0.06 is reflected as Version="0.06p_"
+'		 
 '		 
 ' ====================================================================================================
 ' ====================================================================================================
