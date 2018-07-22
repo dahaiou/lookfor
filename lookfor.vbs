@@ -35,103 +35,149 @@ Version  = "0.06p_"				'_Version
 ' V0.02 Saved 2018-06-01 with Package:inc.vbs_V0.02-01
 ' V0.03 Started 2018-06-01 with Package:inc.vbs_V0.03-01
 ' V0.03 Saved/Released 2018-06-06 with Package:inc.vbs_V0.03-01
+' V0.04 Released 2028-06-13 with Package:inc.vbs_V0.04-01
+' V0.05 Released 2028-06-21 with Package:inc.vbs_V0.05-01
 ' ====================================================================================================
-' V0.04 Started 2018-06-06 with Package:inc.vbs_V0.04-01
-'		initial stuff:
-' 		- removed debugging stuff(at end of inc1.vbs):
-' 		- dim trexregex, sub setrg (s), Sub trex(ByRef cmdline),
-'		- Sub trx(ByRef cmdline), Sub trx_old(ByRef cmdline)
-' V0.04 Release Notes 2018-06-13
-'		Lots of new stuff added, mainly in inc1.vbs
-'		This list highlights the main things, probably not complete:
-'		o Running TestCases from .vbst files is working now in a
-'		  .bare-bones sort of way, still missing lots, such as:
-'		  .output to logfiles, bookkeeping, statistics etc.
-'		o Started adding some structured formatting markup in comments
-'		  .(eg: '_h1 Misc funtions) with some loose ideas of
-'		  .automatic documentation generation a la perl autodoc
-'		  .TODO: Google for existing solutions as alternative
-'		o "Dot notation" to simplify input without needing to type quotes
-'		  .instead of say "hello" you can go .say hello
-'		  .dot notation lines are also preprocessed, see next point.
-'		o Preprocessing of command lines with substitution of expressions:
-'		  . eg. ".say Running Test: {TCnum}" substitutes value of TCnum
-'		  . or ".say 3*4 gives: {3*4}" substitutes 3*4 with 12
-'		o Unix-style option handling eg. cmd -abc --long-opt1 arg1 arg2
-'		  .Main routine: getopts (optstr, ByRef cmdline, ByRef opts_found)
-'		  .Easy to implement in any routine, which can then be called
-'		  .with short or long options either from the command prompt
-'		  .or from other routines
-'		  .
-'		o Improved startup of slave apps for testing
-'		  .slave app can be started from a cmd.exe prompt or directly
-'		  .redirecting of stderr only seems to work from cmd.exe
-'		  .lookfor can now start a slave instance of itself
-'		  .and run test scripts on itself
-'		  .the getopts routine above, having a suitably low but
-'		  .non-trivial complexity level, is actually becoming
-'		  .the pilot test object used in the development of the
-'		  .TestCase functionality
-'		o Handling command line arguments (on invocation)
-'		  .lookfor.vbs now checks for args passed when invoked
-'		  .eg. from a dos command line. lookfor's command prompt
-'		  .can be set in this way, which is useful when starting
-'		  .lookfor as a slave instance for testing.
-'		o Various small utility functions, eg:
-'		  . sayvar("variable") - print out "variable=<value>"
-'		  . good for debugging. Major drawback: var MUST be global
-'		  . would be perfect to implement as a preprocessing macro
-'		  . sayvarq - as sayvar, with single-quoted '<value>'
-'		  . so any additional whitespace is easily visible
-'		  . sub test_rx(s,sPat) to test regex functionality
-'		  . Sub ListProcessRunning() - show processes, copied
-'		  . from stackoverflow. to be removed later
-'		  .
-'		o sDB... "silly DataBase" routines 
-'		  .(sDBadd, sDBdelete, sdBcheck, sDBreset)
-'		  .Store keywords in a string variable, separated by |
-'		  .similar to a PATH variable
-'		o Selective debugging with the saydbg command
-'		  .saydbg "@key1 anytext" can be sprinkled around the code
-'		  .to help with troubleshooting and debugging
-'		  .Whether saydbg prints anything or not is controlled
-'		  .selectively with the @key value and some global variables:
-'		  .DBG_enabled, DBG_current, DBG_banner
-'		  .
-'		o Easter Egg: The 100 Hundred Doors problem included
-'		  at end of inc1.vbs, now working up to n doors.
-'		  HURRY and check it out: probably to be removed soon 
-' 
-' V0.05 Started 2018-06-13 with Package:inc.vbs_V0.05-01
-' V0.05 Release Notes 2018-06-21
-'		This list highlights the main things, probably not complete:
-'		o Running TestCases from .vbst files works in a
-'		  .bare-bones way, still missing lots, such as:
-'		  .output to logfiles, bookkeeping, statistics etc.
-'		o Started adding formatting markup for vbsdoc
-'		  for automatic doc generation
-'		o Started modifying vbsdoc to my needs
-'		o Some improvemed debugging functions eg. 
-'		  . vbsCodetoSayLocalVar and vbsCodetoSayLocalVarq
-'		o ssend now sticks a "slave marker" (ie a ">") at the
-'		  beginning of every line coming from slave stdout
-'		o Easter Egg: The 100 Hundred Doors problem still included
-'		  and was adapted a little.
+' V0.04 Release Notes 2018-06-13: Removed, see earlier releases
+' V0.05 Release Notes 2018-06-21: Removed, see earlier releases
 '		 
 ' V0.06 Started 2018-06-21 with Package:inc.vbs_V0.06-01
+' 		o During development _Preliminary_ V0.06 is reflected as Version="0.06p_"
+' V0.06 Release Notes 2018-07-dd
+'		This list highlights some main things, probably not complete:
+'	_h2 About these Release Notes
+'		o Release Notes and comments from earlier versions (0.04-05) removed but
+'		  .many of the same points are commented on here.
+'	_h2 Doc Formatting: Handling doc markup included in the code:
+'		o Googled around and settled, at least for now, on Ansgar Wiecher's vbsdoc for this
+'		  and started modifying it:
+'		  - Put linefeeds back in for some cases. vbsdoc removes them consistently
+'		  - A lot more to do to make it do what I want
+'	_h2 Importing and including files
+'		o The main program lookfor.vbs now imports several .vbs/t files on startup:
+'		  - inc1.vbs 		- Several help routines, plus imports the other ones
+'		  - TestCase.vbst	- TestCase routines (plus some other stuff creeping in)
+'		  - Misc.vbst		- Miscellaneous
+'		  The last two, with the .vbst extension use the same preprocessing 
+'		  that is available to TestCase files.
+'		o Note: all these files can be reimported into a live session by ".import inc1",
+'		  .useful in debugging. Or also reimported individually by ".rtf filename" 
+'		o In principle we try to avoid resetting global vars on reimport,
+'		  .eg. debug settings are preserved. That said, a few have probably been missed.
+'		o Mechanism implemented to skip parts of code on reimport, eg. for
+'		  .class definitions as classes cannot be redefined
+'		o Implementation: A global flag (eg. G_MyClass_defined) is set on initial import 
+'		  .Then REimport can be detected and those blocks of code skipped by setting
+'		  .another global flag: GlobalDiscardNextBlock = True
+'		o TODO: This skipping mechanism needs polishing up a bit
+'		o The main program _can_ be reimported live with ".import lookfor"
+'		  .but many global vars will be clobbered by resetting to initial values
+'		o TODO: Consider separate file(s) to reinitialise global variables
+'		o TODO: Make the import/include more general and change to .vbsx (extended vbs)
+'		o TODO: Make the main lookfor.vbs fairly bare-bones and most functionality
+'		  .implemented in imported .vbsx modules
+'		o imported modules can announce their presence and version by setting global vars
+'	:h2 Running TestCases from .vbst files:
+'		o TestCase files are run with ".rtf filename" (the default extension is .vbst )
+'		o Consequently, most the comments above about "Importing and including files"
+'			also applies to running testcases.
+'		o Even though this functionality was the intended main purpose of the lookfor program,
+'		  the progress in this area has been rather modest.
+'		  A lot of time slipped by deciding how to implement logging to files
+'		  .and global housekeeping of test results, and these questions are
+'		  .still up in the air quite a bit.
+'		o output to a logfiles implemented as a simple mechanism for now. Not sure if
+'			it needs to be further developed.
+'		  .still missing bookkeeping, statistics, different levels of logging detail etc.
+'		  .TODO: Considering defining TC classes rather than global variables
+'	:h2. Major revamp in progress, of the preprocessing routines used both
+'		in direct command input and during import/include of .vbst files
+'		 o Regexp'es have mostly replaced the pure vbs-string-function approach, and var/expression
+'			 substitution is enhanced, including local vars and shell environment vars
+'		 o The new functionality can already be tested interactively by "comma-notation"
+'			(instead of dot) eg. instead of ".say hello {name}" you can go ",say hello $name"
+'			Note that the comma-notation is only a temporary solution to help with debugging.
+'			The new routines, once tested, will replace the old as standard, and be used
+'			through the normal dot-notation.
+'		 o The "old" routines, to be replaced by the new, but still being used for now (file: inc.vbs):
+'			- Sub RunTestFile(ByVal filename)			- run or import a .vbst file
+'			- Function preprocess_cmdline (cmdline)		- Main routine to preprocess a command line, calls replace_args
+'			- Function replace_args (argline)			- Handles the actual substitution of vars and expressions
+'			- 
+'		 o The new routines and elements being introduced (most of these in file: TestCase.vbst):
+'			- Function findFileName(ByVal filename) *
+'				- This is a separate routine, duplicating the file-finding logic existing in RunTestFile
+'			- Sub RunTest(ByVal filename)		- New routine to run test cases
+'			- Function ssubst (s)		- Experimental routine, not used, to be removed later
+'			- Function cmdsubst (s)		- Main routine to preprocess a command line, calls argsubst(s)
+'			- Function argsubst(s)		- This is where the actual substitution is done
+'			- Function checkQ (s)	 *	- Removes comments, quotes and curly-brace-enclosed elements
+'			- Function unComment (s) *	- Removes trailing comments
+'				* these are in file inc.vbs
+'		 o Various new RegExp defined to handle the parsing/preprocessing of input lines:
+'			- oRxIniPunct		- Find initial punctuation character
+'			- oRxIniToken		- Find first token in line
+'			- oRxSplitmark		- Find next punctuation character indicating preprocessing
+'			- oRxSplitDquote	- Find closing double-quote
+'			- oRxRightCurly		- Find closing curly-brace
+'			- oRxCurlyMissing	- Match case where closing curly-brace is missing
+'			- oRxCurlyEmpty		- Match whitespace or empty string within curly-braces
+'			- oRxCurlyNormal	- Match text within curly-braces
+'		 o The "old" runTestFile routine has been enhanced by handling curly-braces "{}"
+'			as start and stop tokens for multi-line code blocks. The curly-brace notation
+'			is meant to replace the old tokens "<:" and ":>". The old ones still work for now.
+'		 o New syntax for variable and expression substitution:
+'			The "new" routines allow substitution of "name" to be expressed in different ways:
+'			- $name substitution is deferred to execution time and happens in local scope.
+'				Being able to substitute local vars is new and very useful
+'			- ${name} equivalent to $name for simple var substitution, however:
+'				-- must use this one if you need to separate the var from characters following it.
+'					eg. ${name}hello works, where $namehello refers to a different variable
+'				-- (not working yet) can include expressions eg. ${linecount - v2 + 4}
+'					Though unclear whether this is useful or not
+'			- %name substitutes variable name from the shell environment eg. %path
+'			- %name% or %{name} are equivalent to %name, sometimes necessary
+'				to separate the var from characters following it.
+'			- {name} this is the "old" syntax used up to now, and it still works, in parallell
+'				with the ones above. Some advantages "+ plus" and disadvantages "- minus":
+'				+ can substitute expressions eg. {4+5} gives 9
+'				+ can even run code eg. ,say {4: say "Way out of my depth": runtest "opttest1"}
+'				  (the 4 is necessary since the first statement must work as a variable assignment)
+'				  Not clear if this is a plus or a minus. Certainly dangerous and NOT recommended
+'				- A big minus: substitution happens in global scope. Local vars are not visible
+'				- Substitution is at parse-time, substituted values may end up being out of date.
+':h1.Todo
+'!@TODO: Todo and ideas
+'		o Improved startup of slave apps for testing:
+'			- No progress on this. medium to low priority. See V0.04 Release Notes 2018-06-13
+'		o Testing of the getopts routine:
+'			- Very modest progress. medium priority but is important as development help for
+'				the testcase functionality
+'		0 Debugging routines: sayvarq, sayerrq
+'			- Should be easy to do, and valuable, now that local vars work in the new routines
+'		o "Extended vbs" preprocessing.
+'			This is the same, but a better name than "Importing and including files" used above
+'			- On Error, identify offending multi-line block by start and end line numbers
+'			- Option to show n lines of the offending block (currently all is shown)
+'			- Option to log such error messages to file
+'			- Error if block start token found before end: "nested multi-line blocks not allowed"
+'			- Error for nested curly-brace elements
+'			- Handle quoted elements within curly brace eg. {this text "includes quote with {} in it" etc.}
+'			- getUntilExceptQuoted (s, c) - search string s until char c found, skipping any c included in quotes
+'			- 
+'			- 
+'		o User Documentation
+'			- It's high time to start creating some proper documentation.
+'				All that exists now are these comments
+'				The html generated by vbsdoc is useful as programming reference
+'				but less practical for user documentation
 '		 
-'		 
-'		 
-'		 
-'		 
-'!@TODO:
-' o Standardised detection of whether ar slave app is active or not
-' o 
-' o mechanisms to change the child process prompt with just one command
-'   ie. with one command change both: a.) Child's prompt string, by command to child
-'   AND b.) prompt pattern used by Parent when reading from slave's stdout
-'		 
-'		 
+'		o Standardized detection of whether a slave app is active or not
+'		o Further development to handle structured formatting markup
+'		  based on modifying Ansgar Wiecher's vbsdoc (at least for the moment)
+'		o Mechanisms to change the child process prompt with just one command
+'		  ie. with one command change both: a.) Child's prompt string, by command to child
+'		  AND b.) prompt pattern used by Parent when reading from slave's stdout
 '		 
 ' ====================================================================================================
 ' ====================================================================================================

@@ -100,8 +100,9 @@ End Sub
 :>
 
 <:
-Private oRxSSubst : Set oRxSSubst = NewRegExp("\${([a-zA-Z]\w*)}|\$([a-zA-Z]\w*)", True, True)
-Private oRxShSubst : Set oRxShSubst = NewRegExp("\%{(\w+)}|\%(\w+)%?", True, True)
+Private oRxSSubst 		: Set oRxSSubst 	= NewRegExp("\${([a-zA-Z]\w*)}|\$([a-zA-Z]\w*)", 	True, True)
+Private oRxCurlySubst 	: Set oRxCurlySubst = NewRegExp("{([^}]*)}([\s\S]*)$|{([\s\S]*)$", 		True, True)
+Private oRxShSubst 		: Set oRxShSubst 	= NewRegExp("\%{(\w+)}|\%(\w+)%?", 					True, True)
 Function ssubst (s)
 	'Substitute variables in a string. Example, the string:
 	'	"It is now $time and $linecount lines have been read so far"
@@ -131,8 +132,7 @@ End Function ' Function ssubst (s)
 'Private oRxIniPunct : Set oRxIniPunct = NewRegExp("^[^\S\n]*[,.;:_\\\|\@\#\~!$%&=?+-*/]", True, True)
 Private oRxIniPunct : Set oRxIniPunct = NewRegExp("^[^\S\n]*[,.;:_\\\|\@\#\~!$%&=?\+\-\*\/]", True, True)
 Private oRxIniToken : Set oRxIniToken = NewRegExp("^([^\S\n]*[a-zA-Z]\w*)([\s\S]*)$", True, True)
-Private oRxUntilSep : Set oRxUntilSep = NewRegExp("^([^{""]*)([\s\S]*)$", True, True)
-Function cmdsubst (s)
+Function cmdsubst (ByRef s)
 	Dim token, argstr, remain
 	token = ""
 	argstr = ""
@@ -166,13 +166,15 @@ End Function ' Function cmdsubst (s)
 :>
 
 
-<:
+Private oRxSplitmark	: Set oRxSplitmark 		= NewRegExp("^([^\$\%\{\""]*)([\s\S]*)$", 	True, False)
+Private oRxSplitDquote	: Set oRxSplitDquote 	= NewRegExp("^([^""]*)([\s\S]*)$", 			True, False)
+Private oRxRightCurly	: Set oRxRightCurly 	= NewRegExp("^([^}]*)([\s\S]*)$", 			True, False)
 
+Private oRxCurlyMissing	: Set oRxCurlyMissing 	= NewRegExp("^\s*{?([^}]*)$",	 			True, False)
+Private oRxCurlyEmpty	: Set oRxCurlyEmpty 	= NewRegExp("^\s*{?(\s*)}([\s\S]*)$",		True, False)
+Private oRxCurlyNormal	: Set oRxCurlyNormal 	= NewRegExp("^\s*{?([^}]*)}([\s\S]*)$",		True, False)
 
-Private oRxSplitmark : Set oRxUntilSep = NewRegExp("^([^\$\%\{\""]*)([\s\S]*)$", True, False)
-Private oRxSplitDquote : Set oRxSplitDquote = NewRegExp("^([^""]*)([\s\S]*)$", True, False)
-Private oRxSplitCurly : Set oRxSplitCurly = NewRegExp("^([^}]*)([\s\S]*)$", True, False)
-FUnction argsubst(s)
+{ Function argsubst(ByRef s)
 	Dim result, leftstr, remain, state
 	result = ""
 	leftstr = ""
@@ -183,8 +185,8 @@ FUnction argsubst(s)
 	Do While Not remain = ""
 		'say "=============================="
 		'sayq "remain="&remain
-		leftstr = oRxUntilSep.Replace(remain, "$1")
-		remain = oRxUntilSep.Replace(remain, "$2")
+		leftstr = oRxSplitmark.Replace(remain, "$1")
+		remain  = oRxSplitmark.Replace(remain, "$2")
 		
 		'sayq "result="&result
 		'sayq "leftstr="&leftstr
@@ -225,13 +227,13 @@ FUnction argsubst(s)
 	
 		ElseIf splitmark = """" Then	' Handle double-quote substring
 			result = result & """"""	' "double" the double-quote and append to result
-			sayq "at start of quote, result="&result
+			'sayq "at start of quote, result="&result
 			remain = Mid(remain, 2)		' remove splitmark from remaining string
 			' Find closing double-quote
 			leftstr = oRxSplitDquote.Replace(remain, "$1")
 			remain = oRxSplitDquote.Replace(remain, "$2")
 			result = result & leftstr & """"""		' Append quoted string closed with doubled close-quote
-			sayq "at end of quote, result="&result
+			'sayq "at end of quote, result="&result
 			remain = Mid(remain, 2)		' remove close-quote from remaining string
 	
 		ElseIf splitmark = "'" Then	'Handle single-quote ie. comment string until eol
@@ -249,7 +251,6 @@ FUnction argsubst(s)
 			result = result + Left(remain, qpos)	' append the variable substitution to result
 			remain = Mid(remain, qpos + 1)			' and remove it from the beginning of remaining str
 			'sayq "...and remaining remain="&remain
-		
 
 		ElseIf splitmark = "%" Then	'Handle %varname, %varname%, %{varname}
 			' Extract the first %variable substitution from remain
@@ -266,31 +267,83 @@ FUnction argsubst(s)
 			'sayq "...and remaining remain="&remain
 
 		ElseIf splitmark = "{" Then	'Handle curly-brace expression {expr}
-			' Don't handle for now, just move across to left-side
-			result = result & "{"
-			remain = Mid(remain, 2)
+
+			Subst1   = oRxCurlySubst.Replace(remain, "$1")
+			Subst2   = oRxCurlySubst.Replace(remain, "$2")
+			Subst3   = oRxCurlySubst.Replace(remain, "$3")
+
+			If oRxCurlyMissing.Test(remain)  Then
+				sayerr "Error: Closing curly-brace missing in line ..."
+				leftstr = ""
+				remain = Mid(remain, 2)		' remove opening curly-brace from remaining string
+				sayq "remain="&remain
+				
+			ElseIf oRxCurlyEmpty.Test(remain)  Then
+				leftstr = ""
+				remain  = oRxCurlyEmpty.Replace (remain, "$2")
+				say  "Whitespace or empty string withing curly-braces"
+				sayq "remain="&remain
+
+			ElseIf oRxCurlyNormal.Test(remain)  Then
+				leftstr = oRxCurlyNormal.Replace (remain, "$1")
+				remain  = oRxCurlyNormal.Replace (remain, "$2")
+
+				' TODO: Test with: a. curly not closed b. curly at end of line c. curly empty {}
+				say  "==== about to ExecuteGlobal:"
+				sayq "leftstr="&leftstr
+				sayq "remain="&remain
+
+				' Now globalexecute the expression found inside the curly braces
+
+				strictErrExit = False
+				On Error Resume Next
+				Err.Clear
+				'say "ExecuteGlobal (""GsubstVar=""&trim("&leftstr&"))"		' *** DEBUG
+				'ExecuteGlobal "GsubstVar="&trim(leftstr)
+				' sayq "about to ExecuteGlobal: GsubstVar="""" & "&trim(leftstr)
+				ExecuteGlobal "GsubstVar="""" & "&trim(leftstr)
+				' GsubstVar = Eval(leftstr)
+				If Err.Number <> 0 Then
+					sayerr f_error & "Unable to substitute variable or expression: """ & trim(leftstr) & """"
+					sayerr Trim(Err.Description & " (0x" & Hex(Err.Number) & ")")
+					GsubstVar=""
+					If strictErrExit Then		' strictErrExit means quit on first error leaving the whole line unparsed
+						Exit Function
+					Else 
+						' GsubstVar="{" & s & "}" 	' putting the erroneous string back in was an experiment, but not a good idea.
+						' This way {<invalid expression>} is just removed, including the curlies
+					End If
+				End If
+				On Error Goto 0
+				result = result & GsubstVar ' Append resulting string (leftstr still holds the original expression before execution)
+
+			Else
+				sayerr "Error: Internal logic failed. Case not covered by existing Regexp strings:"
+				sayerrq "Remaining string: remain="&remain
+
+			End If
 
 		End If
 
 		'remain = Mid(remain, 2)
-		i=i+1
-		if i > 12 Then Exit Do
+		i=i+1						' #### DEBUG
+		if i > 12 Then Exit Do		' #### DEBUG
 	Loop
 	
 	result = """" & result & """"
 	'sayq "result="&result
 	argsubst = result
-End Function' Function argsubst(s)
-:>
+End Function ' Function argsubst(s)
+}
 
-<:
+{
  '! : Checking Global_sPipeClass_defined
  If Global_sPipeClass_defined Then
 	sayerr "Warning: Class cannot be redefined. Skipping sPipeClass."
 	GlobalDiscardNextBlock = True
 	' wscript.sleep(500)
  End If
-:>   
+}   
  
 '*wscript.sleep(100)
 '*say "Just slept 100"
@@ -301,7 +354,7 @@ End Function' Function argsubst(s)
 'If GlobalDiscardNextBlock Then dummy = 0
 
 'If Global_sPipeClass_defined Then GlobalDiscardNextBlock = True
-<: 'sPipeClass
+{   '<: 'sPipeClass
  ' '!: Silly String Pipe functions - NB: Initial '!: Generates "Direct" .vbst parse-time comment output
  '# If Global_sPipeClass_defined Then GlobalDiscardThisBlock = True
   Global_sPipeClass_defined = True
@@ -326,9 +379,14 @@ End Function' Function argsubst(s)
  	
  End Class
 
-:>
+}
 
-'sayerr "Still running after sPipeClass"
+{sayerr "#### DEBUG INSIDE Curlies ..."
+sayerr "#### Happy days with close token }" }
+
+sayerr "#### DEBUG will this show ???"
+
+sayerr "Still running after sPipeClass"
 
 <:
 

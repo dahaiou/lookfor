@@ -1373,6 +1373,98 @@ End Function '! Private Function findFileName(ByVal filename)
 			TestLine = ""
 		End If	' If Left (TestLine, 2) = "<:" Then		' Left <: smiley-bird block indicator 
 
+		' ====+====1====+====2====+====3====+====4====+====5====+====6====+====7====+====8====+====9====+====0
+		' Handle Curly-brace-enclosed multi-line code block aka "curly-block"
+		' ====+====1====+====2====+====3====+====4====+====5====+====6====+====7====+====8====+====9====+====0
+		' ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----O
+		' This is a multi-line block of code, enclosed by start and end tokens
+		' that MUST be read in from file FIRST, and THEN executed as ONE CHUNK
+		' The opening curly-brace (aka left-curly) "{"  and "}" closing curly-brace respectively are the start and end tokens
+		If Left (TestLine, 1) = "{" Then		' Left-curly block indicator 
+			right_curly_found = False
+			TestLine = Mid (rxLTrim(fline), 2)
+			Do
+				' "Chatter Comments" Initial '!: Generates "Direct" .vbst parse-time comment output
+				' ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----O
+				If Instr(rxLTrim (Testline), "'!:") = 1 Then			' #### DEBUG
+					say Testline
+					Testline = ""
+				End If
+
+				' "Hash-mark" lines: Initial "#" is executed immediately at parse-time
+				' ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----O
+				If Instr(rxLTrim (Testline), "#") = 1 Then			' #### DEBUG
+					TestLine = Mid (rxLTrim(TestLine), 2)
+					saydbg "@runtestfile Hashmark immediate Execute: " & TestLine
+					RunVbshLine(Testline)
+					Testline = ""
+				End If
+
+				' Handle case where end token "}" is on same line
+				' Uncertain, TestCase: what if fLine has end token followed by spaces(?)
+				saydbg "@runtestfile curly block line: " & TestLine
+				If InStr(Testline,"}") Then			' Efficiency (?): Avoid calling checkQ(Testline) for every line
+					If Right(rxRTrim(checkQ(Testline)), 1) = "}" Then		' Note: CheckQ removes "legitimate" curly-brace pairs first
+						' End token "}" found as last char, after comments and trailing spaces removed
+						' ALSO: ensuring that previous {curly-brace enclosed} elements on the same line are disregarded
+						' NOTE: It is important to call checkQ above, and then unComment below
+						' Note for the future: End token "}", trailing spaces and comment are removed from Testline
+						' ie. any preprocessing tags in trailing comments are lost beyond this point (if implemented in the future)
+						' Should not matter: as it is strongly recommended to have the multi-line end token "}" on its own anyway
+						' (on a separate line). Such a line _can_ have a trailing comment but any preprocessing tags included
+						' in that comment will be lost, unless handled by logic above this point in the code.
+						Testline = RTrim(unComment(Testline))
+						Testline = Left(TestLine, len (TestLine) - 1 )
+						right_curly_found = True
+					ElseIf InStr(checkQ(Testline),"}") Then
+						sayerr "(RunTestFile): Warning, in file: " & shortfilename & ", Line no: " & flineNo
+						sayerr "Code after close token } not allowed. Code on following line discarded: "&TestLine
+						TestLine = ""
+						right_curly_found = True
+					End If
+				End If
+
+				'sayerr "@runtestfile_dot checking for dot in:"&TestLine  ' **** DEBUG
+
+				' Preprocess
+				'Testline = Trim (TestLine)
+				If Instr(rxLTrim(Testline), ".") = 1 Then
+'				If Mid(Testline, LTrimPos(Testline), 1) = "." Then
+					saydbg "@runtestfile_dot dot-preprocessing:"&TestLine  ' **** DEBUG
+					Testline = preprocess_cmdline (TestLine)
+					saydbg "@runtestfile_dot dot-preprocessed result:"&TestLine  ' **** DEBUG
+				End If
+
+				'sayq "Testline="&Testline  ' **** DEBUG
+
+				If len (code) > 0 Then code = code & VBCrLf 
+				code = code & TestLine
+
+				' Exit the loop if finished
+				If right_curly_found Or file.AtEndOfStream Then Exit Do
+
+				' Get next line
+' >>>>>>>>>>>>>>>>>>>>> Read Input: Mode = Curly-Multiline   >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+				fline = file.ReadLine
+				flineno = flineno + 1
+				TestLine = fline
+			Loop
+			' saydbg "@runtestfile curly block found:" & vbcrlf & "----------" & vbcrlf & code & vbcrlf & "----------"
+
+			If GlobalDiscardThisBlock Then
+				saydbg "@runtestfile Discarding THIS block <:" & VBCrLf & code & VBCrLf & ":>"
+				code = ""
+				GlobalDiscardThisBlock = False
+			End If
+			If GlobalDiscardNextBlock Then
+				saydbg "@runtestfile Discarding this NEXT block <:" & VBCrLf & code & VBCrLf & ":>"
+				code = ""
+				GlobalDiscardNextBlock = False
+			End If
+			TestLine = ""
+		End If	' If Left (TestLine, 1) = "{" Then		' Left-curly block indicator 
+
+
 		' Handle "here-block" (aka "here document")
 		' ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----O
 		' The "here-block" is a multi-line block of text, enclosed in "<+" and "+>" respectively
@@ -1476,6 +1568,8 @@ End Function '! Private Function findFileName(ByVal filename)
 
 			If MyErr.Number <> 0 Then
 				sayerr "(RunTestFile): Execution Error in file: " & shortfilename & ", Line no: " & flineNo
+				'!@TODO: Limit the output of code here to the first n lines
+				sayerr "Code that failed: "&code
 				If exitOnError Then Exit Sub
 			End If
 
@@ -1523,6 +1617,136 @@ End Function '! Private Function findFileName(ByVal filename)
 	sans_prompt = Replace (s, vbCrLf & prompt, "") '! Not sure if we should remove only one here (?)
 	'!sans_prompt = Replace (s, prompt) '! Not sure if we should remove these (?)
  End Function '! Function sans_prompt (s, prompt)
+
+ Function checkQ (ByRef s)
+ ' Return a string with quotes, curlies and comments removed.
+ ' eg. the line: dosomething with "{this} 'string'" and {a "variable"} hello {another var}' a comment
+ ' becomes: dosomething with  and  hello 
+ 	Dim pos1, pos2, pos3, remain 
+	 checkQ = ""
+	 remain = s
+	 Do While len (remain) > 0
+		 saydbg "@checkq remain="&remain
+		 pos1 = InStr (remain, """")
+		 pos2 = InStr (remain, "{")
+		 pos3 = InStr (remain, "'")
+
+		If pos3 > 0 and (pos3 < pos1 or pos1 = 0) and (pos3 < pos1 or pos1 = 0) Then		' A comment stops the game right here
+			checkQ = checkQ & Left(remain, pos3 - 1)
+			exit function
+
+		ElseIf pos1 > 0 and ( pos1 < pos2 or pos2 = 0 ) then		' Double-quote char found
+			checkQ = checkQ & Left(remain, pos1 - 1)
+			remain = Mid (remain, pos1 + 1)
+			endpos = InStr(remain, """")
+
+		ElseIf pos2 > 0 and ( pos2 < pos1 or pos1 = 0 ) then		' left curly-brace found
+			checkQ = checkQ & Left(remain, pos2 - 1)
+			remain = Mid (remain, pos2 + 1)
+			' Some added sophistication for detecting where a curly-brace-enclosed element "really" ends
+			'endpos = InStr(remain, "}")				' This usually works, but fails for curly-within-quote-within-curly
+			endpos = len (getUntilEnd (remain, "}"))	' This one works, even for ... {"str{curly}"} ..., but NO deeper than that
+														' This also works: ...{say "end token is ""}"""}
+		
+		Else
+			checkQ = checkQ & remain				' nothing found: no comments, curly-braces or quotes
+			endpos = 0
+		End If
+
+		 if endpos = 0 Then Exit Function			' nothing found, or closing quote or curly-brace missing
+
+		 remain = Mid (remain, endpos + 1)
+	 Loop
+ End Function  'Function checkQ (ByRef s)
+
+ Function unComment (ByRef s)
+ ' Return a string with final comment removed.
+ ' eg. the line: whatever "this is 'a string'" and { another 'one} again ' comment text
+ ' becomes: whatever "this is 'a string'" and { another 'one} again 
+ ' but single-quotes within quotes or within curly-braces are unaffected
+ 	Dim pos1, pos2, pos3, endpos, remain 
+	 unComment = ""
+	 remain = s
+	Do While len (remain) > 0
+		saydbg "@uncomment remain="&remain
+		pos1 = InStr (remain, """")
+		pos2 = InStr (remain, "{")
+		pos3 = InStr (remain, "'")
+
+		If pos3 > 0 and (pos3 < pos1 or pos1 = 0) and (pos3 < pos1 or pos1 = 0) Then		' A comment stops the game right here
+			unComment = unComment & Left(remain, pos3 - 1)
+			exit function
+
+		ElseIf pos1 > 0 and ( pos1 < pos2 or pos2 = 0 ) Then		' Double-quote char found
+			unComment = unComment & Left(remain, pos1)
+			remain = Mid (remain, pos1 + 1)
+			endpos = InStr(remain, """")
+			unComment = unComment & Left(remain, endpos)
+
+		ElseIf pos2 > 0 and ( pos2 < pos1 or pos1 = 0 ) Then		' left curly-brace found
+			unComment = unComment & Left(remain, pos2)
+			remain = Mid (remain, pos2 + 1)
+			endpos = InStr(remain, "}")
+			unComment = unComment & Left(remain, endpos)
+
+		Else
+			endpos = 0
+		End If
+
+		if endpos = 0 Then
+			unComment = unComment & remain
+			Exit Function			' closing quote or curly-brace missing
+		End If
+
+		 remain = Mid (remain, endpos + 1)
+	 Loop
+ End Function  ' Function unComment (ByRef s)
+
+ Set gend = getref("getUntilEnd")
+
+ Function getUntilEnd (ByRef s, endchar)
+ 	' Extract from beginning of string until end character is found, skipping characters within quotes
+	 Dim c, pos1, pos2, endposq, remain, result
+	 getUntilEnd = ""
+	 result = ""
+	 c = Left(endchar,1)
+	 If c = "" Then Exit Function
+	 saydbg "@getuntilend c="&c
+
+	 If InStr (s, c) = 0 Then		' endchar not found: Nothing to do
+		saydbg "@getuntilend c NOT FOUND"
+		getUntilEnd = s
+		Exit Function
+	 End If
+
+	remain = s
+	Do While len (remain) > 0
+		saydbg "@getuntilend remain="&remain
+		pos1 = InStr (remain, """")
+		pos2 = InStr (remain, c)
+
+		If pos1 > 0 and ( pos1 < pos2 or pos2 = 0 ) Then		' Double-quote char found
+			result = result & Left(remain, pos1)
+			remain = Mid (remain, pos1 + 1)
+			endposq = InStr(remain, """")
+			result = result & Left(remain, endposq)
+			remain = Mid (remain, endposq + 1)
+
+		ElseIf pos2 > 0 and ( pos2 < pos1 or pos1 = 0 ) Then		' endchar found
+			result = result & Left(remain, pos2)
+			Exit Do
+
+		Else														' endchar not found in remain
+			result = result & remain
+			Exit Do
+		End If
+
+	Loop
+	getUntilEnd = result
+ End Function ' Function getUntilEnd (ByRef s, endchar)
+
+
+
 
 _
  '  SlveReadUpto (pattern)
