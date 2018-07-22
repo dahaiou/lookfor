@@ -7,13 +7,13 @@ ProgName = "lookfor"
 '!_Copyright   : (C) 2018, Henrik Soderstrom*
 '!_License     : GPL2* (except for various snippets as noted in comments)
 '! before running release, put current date in next line. Afterwards put back the mm-dd:s '#### <DEBUGLINE>
-'!_Date        : 2018-06-dd
+'!_Date        : 2018-07-22
 '! after running release, put current date in next line.                   '#### <DEBUGLINE>
-'!_Date        : 2018-06-21-                                               '#### <DEBUGLINE>
-'! before running release, remove the "p" in next two lines.               '#### <DEBUGLINE>
+'!_Date        : 2018-07-dd-                                               '#### <DEBUGLINE>
+'! before running release, remove the "p_" in next two lines.              '#### <DEBUGLINE>
 '! after running release, put the "p" back and step revision.              '#### <DEBUGLINE>
-Version  = "0.06p_"				'_Version
-'!_Version     : 0.06p_                          #### <DEBUGLINE>
+Version  = "0.06"				'_Version
+'!_Version     : 0.06                          #### <DEBUGLINE>
 '!_Description : Automated running/testing of win/dos console apps 
 '!               (similar to expect, but in VBScript rather than tcl)
 '!               - Start console app and send command lines to it (stdin)
@@ -37,13 +37,15 @@ Version  = "0.06p_"				'_Version
 ' V0.03 Saved/Released 2018-06-06 with Package:inc.vbs_V0.03-01
 ' V0.04 Released 2028-06-13 with Package:inc.vbs_V0.04-01
 ' V0.05 Released 2028-06-21 with Package:inc.vbs_V0.05-01
+' V0.06 Released 2028-07-22 with Package:inc.vbs_V0.06-01
+'		(also including TestCase.vbst V0.06-01, misc.vbst V0.06-01)
 ' ====================================================================================================
 ' V0.04 Release Notes 2018-06-13: Removed, see earlier releases
 ' V0.05 Release Notes 2018-06-21: Removed, see earlier releases
 '		 
 ' V0.06 Started 2018-06-21 with Package:inc.vbs_V0.06-01
 ' 		o During development _Preliminary_ V0.06 is reflected as Version="0.06p_"
-' V0.06 Release Notes 2018-07-dd
+' V0.06 Release Notes 2018-07-22
 '		This list highlights some main things, probably not complete:
 '	_h2 About these Release Notes
 '		o Release Notes and comments from earlier versions (0.04-05) removed but
