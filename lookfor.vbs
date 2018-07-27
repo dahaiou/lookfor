@@ -3,20 +3,22 @@
 '!_File        : lookfor.vbs
 Dim ProgName, Version, ProgPackages, ProgNameString  '! Identify Program and loaded Modules
 ProgName = "lookfor"
-'!>_Author      : Henrik Soderstrom*
+'!_Author      : Henrik Soderstrom*
 '!_Copyright   : (C) 2018, Henrik Soderstrom*
 '!_License     : GPL2* (except for various snippets as noted in comments)
-'! before running release, put current date in next line. Afterwards put back the mm-dd:s '#### <DEBUGLINE>
+'  before running release, put current date in next line. Afterwards put back the mm-dd:s '#### <DEBUGLINE>
 '!_Date        : 2018-mm-dd
-'! after running release, put current date in next line.                   '#### <DEBUGLINE>
+'  after running release, put current date in next line.                   '#### <DEBUGLINE>
 '!_Date        : 2018-07-22-                                               '#### <DEBUGLINE>
-'! before running release, remove the "p_" in next two lines.              '#### <DEBUGLINE>
-'! after running release, put the "p" back and step revision.              '#### <DEBUGLINE>
+'  before running release, remove the "p_" in next two lines.              '#### <DEBUGLINE>
+'  after running release, put the "p" back and step revision.              '#### <DEBUGLINE>
 Version  = "0.07p_"				'_Version
 '!_Version     : 0.07p_                          #### <DEBUGLINE>
-'!_Description : Automated running/testing of win/dos console apps 
-'!               (similar to expect, but in VBScript rather than tcl)
+'!_Description : Automated running/testing of CLI (Command Line Interface) applications
+'!				 (aka "console apps") in the win/dos environment
+'!               Inspired by expect to some extent, but implemented in VBScript rather than tcl
 '!               - Start console app and send command lines to it (stdin)
+'!					(standard input)
 '!               - "lookfor" and analyse the output coming back (stdout)
 '!               - Run automated test scripts (extension .vbst)
 '!               - Log results to logfile (.vbstlog)
@@ -25,9 +27,9 @@ Version  = "0.07p_"				'_Version
 '   various snippets from other sources, noted in comments in each case
 '_Usage      :: See the help_message function below
 
-' TODO: Organise the references to "other sources" better, eg. the following bit:
-' Based partly on: "A simple interactive VBScript shell."
-' @see http://www.kryogenix.org/days/2004/04/01/interactivevbscript
+'!@TODO: Organise the references to "other sources" better, eg. the following bit:
+'! Based partly on: "A simple interactive VBScript shell."
+'! @see : A simple interactive VBScript shell. http://www.kryogenix.org/days/2004/04/01/interactivevbscript
 '
 ' ====================================================================================================
 ' (NOTE: rulers of exactly 100 = equal signs, preceded by quote ' and whitespace as necessary)
@@ -115,11 +117,11 @@ Version  = "0.07p_"				'_Version
 '			- Function argsubst(s)		- This is where the actual substitution is done
 '			- Function checkQ (s)	 *	- Removes comments, quotes and curly-brace-enclosed elements
 '			- Function unComment (s) *	- Removes trailing comments
-'				* these are in file inc.vbs
+'				* these are in file inc.vbs, Note: checkQ and unComment do NOT use RegExp
 '		 o Various new RegExp defined to handle the parsing/preprocessing of input lines:
 '			- oRxIniPunct		- Find initial punctuation character
 '			- oRxIniToken		- Find first token in line
-'			- oRxSplitmark		- Find next punctuation character indicating preprocessing
+'			- oRxSplitmark		- Find next one of the punctuation characters used in preprocessing
 '			- oRxSplitDquote	- Find closing double-quote
 '			- oRxRightCurly		- Find closing curly-brace
 '			- oRxCurlyMissing	- Match case where closing curly-brace is missing
@@ -214,8 +216,8 @@ Set SlaveShell = Nothing
 Set SlaveExec  = Nothing
 
 
-' TODO: "prompt" is used everywhere below to mean slaveprompt. Needs to be
-'		 refactored as SlavePrompt or similar and then myprompt to prompt
+' TODO: Check that slaveprompt has been properly refactored as SlavePrompt, then
+'		refactor the main prompt as prompt (or mainPrompt)
 
 Dim MyPrompt
 MyPrompt = ProgName & ":> "
@@ -555,12 +557,15 @@ Sub RunVbshLine (line)
 		
 		ElseIf Left(line, 1) = ":" Then
 			say "Test output(preprocess_cmdline): " & preprocess_cmdline (mid(line,2))
-		ElseIf Left(line, 1) = "," Then
-			'RunVbshLine preprocess_cmdline (mid(line,2))
-			myExecuteGlobal cmdsubst (line)
 		ElseIf Left(line, 1) = "." Then
 			'RunVbshLine preprocess_cmdline (mid(line,2))
 			myExecuteGlobal preprocess_cmdline (mid(line,2))
+		ElseIf Left(line, 1) = ";" Then
+			'RunVbshLine preprocess_cmdline (mid(line,2))
+			say "Test output(cmdsubst): " & cmdsubst (line)
+		ElseIf Left(line, 1) = "," Then
+			'RunVbshLine preprocess_cmdline (mid(line,2))
+			myExecuteGlobal cmdsubst (line)
 		ElseIf Left(line, 1) = ">" Then
 			ssend (mid(line,2))
 		ElseIf Left(line, 1) = "_" Then
@@ -599,9 +604,9 @@ End Sub ' Sub myExecuteGlobal
 
 
 '! Run sub Main:
-Main
+Main Wscript.Arguments
 
-Sub Main()
+Sub Main(wargs)
 	Dim line
 
 	'ImportLF_InitScript

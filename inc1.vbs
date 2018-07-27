@@ -33,11 +33,9 @@ End If
 '! By Ansgar Wiechers, See Copyrights Ref.1
 '! Name changed from CompileRegExp to NewRegExp
 '!
-'! @param  pattern      The pattern for the regular expression.
-'! @param  ignoreCase   Boolean value indicating whether the regular expression
-'!                      should be treated case-insensitive or not.
-'! @param  searchGlobal Boolean value indicating whether all matches or just
-'!                      the first one should be returned.
+'! @param  pattern      The Regular Expression to match
+'! @param  ignoreCase   True = Ignore case, False = Case-sensitive match
+'! @param  searchGlobal True = Return all matches, False = Stop after first match
 '! @return A new regular expression object.
 Private Function NewRegExp(pattern, ignoreCase, searchGlobal)
 	Set NewRegExp = New RegExp
@@ -1101,7 +1099,22 @@ Private Function findFileName(ByVal filename)
 	Set sh = Nothing
 End Function '! Private Function findFileName(ByVal filename)
 
+function psaylvarq (vname)
+	psaylvarq = "say """ & vname &"='"" & " & vname & " & ""'"""
+end function
 
+function psaylvarcmq (vname)
+	psaylvarcmq = ",say " & vname & "='$" & vname & "'"
+end function
+
+Private oRxSayLvar : Set oRxSayLvar = NewRegExp("(vname)", True, True)
+function psaylvar2cmq (lvarname)
+	psaylvar2cmq = oRxSayLvar.Replace(",say vname='$vname'", lvarname)
+end function
+
+function psaylvar3cmq (lvarname)
+	psaylvar3cmq = Replace(",say vname='$vname'", "vname", lvarname)
+end function
 
 
  ' ====+====1====+====2====+====3====+====4====+====5====+====6====+====7====+====8====+====9====+====0
@@ -1391,20 +1404,52 @@ End Function '! Private Function findFileName(ByVal filename)
 					Testline = ""
 				End If
 
-				' "Hash-mark" lines: Initial "#" is executed immediately at parse-time
+				' "Percent-sign" lines: Initial "%" is executed immediately at parse-time
 				' ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----O
-				If Instr(rxLTrim (Testline), "#") = 1 Then			' #### DEBUG
+				If Instr(rxLTrim (Testline), "%") = 1 Then			' #### DEBUG
 					TestLine = Mid (rxLTrim(TestLine), 2)
-					saydbg "@runtestfile Hashmark immediate Execute: " & TestLine
+					saydbg "@runtestfile Percent-sign immediate Execute: " & TestLine
 					RunVbshLine(Testline)
 					Testline = ""
 				End If
 
-				' Handle case where end token "}" is on same line
+				' "Hashmark" lines: Initial "#" triggers parse-time preprocessing
+				' ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----O
+				If Instr(rxLTrim (Testline), "#") = 1 Then			' #### DEBUG
+					TestLine = Mid (rxLTrim(TestLine), 2)
+					saydbg "@runtestfile-hash Hashmark preprocessing: " & TestLine
+					Testline = funcsubst (Testline)
+					saydbg "@runtestfile-hash Hashmark preprocessing: " & TestLine
+					Testline = eval (Testline)
+					saydbg "@runtestfile-hash Hashmark preprocessing: " & TestLine
+				End If
+
+				If Instr(rxLTrim(Testline), ",") = 1 Then
+					Testline = cmdsubst (TestLine)
+				End If
+
+				' Preprocess
+				'Testline = Trim (TestLine)
+				If Instr(rxLTrim(Testline), ".") = 1 Then
+'				If Mid(Testline, LTrimPos(Testline), 1) = "." Then
+					saydbg "@runtestfile_dot dot-preprocessing:"&TestLine  ' **** DEBUG
+					Testline = preprocess_cmdline (TestLine)
+					saydbg "@runtestfile_dot dot-preprocessed result:"&TestLine  ' **** DEBUG
+				End If
+
+
+
+				
+				' TestCase: Handle case where end token "}" is on same line
 				' Uncertain, TestCase: what if fLine has end token followed by spaces(?)
 				saydbg "@runtestfile curly block line: " & TestLine
-				If InStr(Testline,"}") Then			' Efficiency (?): Avoid calling checkQ(Testline) for every line
-					If Right(rxRTrim(checkQ(Testline)), 1) = "}" Then		' Note: CheckQ removes "legitimate" curly-brace pairs first
+				
+				If InStr(Testline,"}") Then			
+					' Check if there is an end token "}" anywhere in the line: if so, it is a possible candidate for end of block
+					' (or the token could be inside a quote or part of a curly-brace substitution expression)
+					' Hopefully it is more efficient this way as we avoid calling checkQ(Testline) for every line
+					' Anyway: Now we DID find end token, so we call checkQ to see it is a real or a false alarm
+					If Right(rxRTrim(checkQ(Testline)), 1) = "}" Then		' Note: CheckQ removes "regular" curly-brace pairs first
 						' End token "}" found as last char, after comments and trailing spaces removed
 						' ALSO: ensuring that previous {curly-brace enclosed} elements on the same line are disregarded
 						' NOTE: It is important to call checkQ above, and then unComment below
@@ -1425,15 +1470,6 @@ End Function '! Private Function findFileName(ByVal filename)
 				End If
 
 				'sayerr "@runtestfile_dot checking for dot in:"&TestLine  ' **** DEBUG
-
-				' Preprocess
-				'Testline = Trim (TestLine)
-				If Instr(rxLTrim(Testline), ".") = 1 Then
-'				If Mid(Testline, LTrimPos(Testline), 1) = "." Then
-					saydbg "@runtestfile_dot dot-preprocessing:"&TestLine  ' **** DEBUG
-					Testline = preprocess_cmdline (TestLine)
-					saydbg "@runtestfile_dot dot-preprocessed result:"&TestLine  ' **** DEBUG
-				End If
 
 				'sayq "Testline="&Testline  ' **** DEBUG
 
@@ -1576,35 +1612,11 @@ End Function '! Private Function findFileName(ByVal filename)
 			code = ""
 		ElseIf Not executeNow Then		' NOTE: Currently NOT used 
 			nonExeCount = nonExeCount+1
-
-			' ====== DEAD CODE ======
-		Else ' This Else is never reached, left in to keep code below as reference
-			On Error Resume Next
-				Err.Clear
-				ExecuteGlobal(TestLine)
-				If Err.Number <> 0 Then WScript.StdErr.WriteLine Trim(Err.Description & " (0x" & Hex(Err.Number) & ")")
-			On Error Goto 0
-			' ====== END of DEAD CODE ======
 		End If
-
-	'		code = code & TestLine & vbCrLf
 	' ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----O
 	Loop ' Do While Not file.AtEndOfStream 
 
-	'	code = code & "  "
-
 	file.Close()
-
-	'! saydbg "@runtestfile processed code from file " & filename & ":"
-	'! saydbg "@runtestfile " & code
-
-
-	'	On Error Resume Next
-	'		Err.Clear
-	'		ExecuteGlobal(code)
-	'		If Err.Number <> 0 Then WScript.StdErr.WriteLine Trim(Err.Description & " (0x" & Hex(Err.Number) & ")")
-	'	On Error Goto 0
-
 	Set fso = Nothing
 	Set sh  = Nothing
 

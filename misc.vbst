@@ -6,7 +6,7 @@ say "Including: " & inc1NameString
  set objItems = Nothing
  set objItem = Nothing
 
-<:
+{
 
  '! https://stackoverflow.com/questions/41095060/how-to-get-running-application-name-by-vbscript
  Sub ListProcessRunning()
@@ -55,32 +55,80 @@ Sub EnumNamespaces(Nspace, Computer)
 	
 	Next 
 End Sub ' Sub EnumNamespaces(Nspace)
-:>
 
-Responsable = " Mr. President  "
+'!@ref Tom Laveda 2003, http://computer-programming-forum.com/59-vbscript/bc9ef89b8cb2b879.htm
+Function dos (DOSCmd)
+  Dim alines, sCmd, stemp, ofs, oWS
+  On Error Resume Next
+  '  sCmd = """%comspec%"" /c ""%comspec%"" /e:4096 /c " & DOSCmd & " >"
+  sCmd = "cmd.exe /c cmd.exe /e:4096 /c " & DOSCmd & " >"
+  set ofs = CreateObject("Scripting.FileSystemObject")
+  stemp = ofs.GetTempName
+  set oWS = CreateObject("Wscript.Shell")
+  stemp = oWS.Environment("PROCESS")("TEMP") & "\" & stemp
+  'sTemp = "dos.tmp"		' #### DEBUG
+  'sayerr "#### Running: oWS.Run " & sCmd & Chr(34) & sTemp & Chr(34) & " 2>&1, 0, true"		' #### DEBUG
+  oWS.Run sCmd & Chr(34) & sTemp & Chr(34) & " 2>&1", 0, true
 
-<:
+  ' The Original function MSDOS splits each line of outupt into the array alines
+  ' alines = Split(ofs.OpenTextFile(stemp).ReadAll, vbNewline)
+  ' ReDim Preserve alines(Ubound(alines) - 1)
+  ' if Err Then aLines = Split(Empty)
+
+  ' Here, we just return the output directly as a multiline string
+  dos = ofs.OpenTextFile(stemp).ReadAll
+  ofs.DeleteFile stemp
+  if Err Then sayerr "DOS Error"	' This seems to have no effect after redirecting dos errout to stdout
+
+  ' Dirty hack: Fix chr(255) which plagues redirected dos output due to codepage differences
+  dos = Replace(dos,chr(255)," ")	
+End Function 
+
+Sub saydos (s)
+	say dos(s)
+End Sub
+}
+
+Responsable = " Mr. _Global_ President  "
+
+{
 '! Test function vSayLvarq, short vbsCodetoSayLocalVarq
 Sub funny (s)
 	Dim myvar, Gtest1, Responsable
 	myvar = "funny myvar"
 	Gtest1 = "funny test1"
 
-	Responsable = " Little Red Riding Hood  "
-	say VBCrLf&"simple say:"
+	Responsable = " Little _Local_ Red Riding Hood  "
+	say VBCrLf&"simple say (unquoted):"
 	say "Responsable="&Responsable
 
-	Responsable = " Little Red Riding Hood  "
+	say VBCrLf&"comma dollar say:"
+	,say Responsable='$Responsable'
+
+	say VBCrLf&"preprocessed pSayLvarQ:"
+	#psaylvarq Responsable
+
+	say VBCrLf&"preprocessed pSayLvarcmQ:"
+	#psaylvarcmq Responsable
+
+	say VBCrLf&"preprocessed pSayLvar2cmQ:"
+	#psaylvar2cmq Responsable
+
+	say VBCrLf&"preprocessed pSayLvar3cmQ:"
+	#psaylvar3cmq Responsable
+
 	say VBCrLf&"with sayvarq:"
 	sayvarq "Responsable"
 
-	say VBCrLf&"with manual text:"
+	say VBCrLf&"with manual quotes:"
 	say "Responsable='"&Responsable&"'"
 	
 	say VBCrLf&"with vSayLvarq:"
 	execute vSayLvarq ("Responsable")
 
 	Exit Sub
+
+	' ======== DEAD CODE Below ========
 	vname = "myvar"
 	say vname & "=" & eval(vname)
 	sayagain = replace_args("say vname & ""=""  & eval(vname)")
@@ -100,7 +148,7 @@ Sub funny (s)
 	execute vSayLvar ("Gtest2")
 	execute vSayLvarq ("Gtest2")
 End Sub
-:>
+}
 
 
 

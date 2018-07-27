@@ -163,6 +163,26 @@ Function cmdsubst (ByRef s)
 
 End Function ' Function cmdsubst (s)
 
+Function funcsubst (ByRef s)
+	Dim token, argstr, remain
+	token = ""
+	argstr = ""
+	remain = ""
+
+	' Remove initial (only one) punctuation character, any of ",.;:_\|@#~!"·$%&=?¿+-*/"
+	remain = oRxIniPunct.Replace (s, "")
+	If oRxIniToken.Test (remain) Then
+		token  = oRxIniToken.Replace (remain, "$1")
+		remain = oRxIniToken.Replace (remain, "$2")
+	End If
+	If Left(remain,1) = " " Then remain = Mid(remain, 2)		' Remove one initial space if present
+
+	remain = argsubst(remain)
+
+	funcsubst = token & "(" & remain & ")"
+
+End Function ' Function funcsubst (s)
+
 :>
 
 
