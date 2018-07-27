@@ -12,7 +12,7 @@ ProgName = "lookfor"
 '!_Date        : 2018-07-22-                                               '#### <DEBUGLINE>
 '  before running release, remove the "p_" in next two lines.              '#### <DEBUGLINE>
 '  after running release, put the "p" back and step revision.              '#### <DEBUGLINE>
-Version  = "0.07p_"				'_Version
+Version  = "0.07p01_"				'_Version
 '!_Version     : 0.07p_                          #### <DEBUGLINE>
 '!_Description : Automated running/testing of CLI (Command Line Interface) applications
 '!				 (aka "console apps") in the win/dos environment
@@ -186,6 +186,14 @@ Version  = "0.07p_"				'_Version
 ' V0.07 Started 2018-07-22 with Package:inc.vbs_V0.07-01
 '		(as well as TestCase.vbst V0.07-01, misc.vbst V0.07-01)
 ' 		o During development _Preliminary_ V0.06 is reflected as Version="0.06p_"
+' V0.07p01 2018-07-27 with Packages:inc.vbs etc. at V0.07-01
+'		 Preliminary Snapshot just BEFORE doing the following actions:
+'		o Remove the old multi-block syntax, with start and stop markers "<:" and ":>"
+'		o replace <: old notation :> with { new } curly-brace notation in all .vbst files
+'		o Connect .dot notation to the new routines, and temporarily the old ones to ,comma notation
+'		o Remove misc. other old stuff
+'		NOTE: The mentioned changes have NOT YET been done here in V0.07p01.
+'		They are done directly after saving this snapshot
 '		 
 '		 
 ' ====================================================================================================
