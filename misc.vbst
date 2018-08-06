@@ -8,8 +8,9 @@ say "Including: " & inc1NameString
 
 {
 
- '! https://stackoverflow.com/questions/41095060/how-to-get-running-application-name-by-vbscript
- Sub ListProcessRunning()
+'! https://stackoverflow.com/questions/41095060/how-to-get-running-application-name-by-vbscript
+Sub ListProcessRunning()
+' ====+====1====+====2====+====3====+====4====+====5====+====6====+====7====+====8====+====9====+====0	
   'This function can report names from
   'TaskManager -> Processes
      sComputerName = "."
@@ -21,17 +22,21 @@ say "Including: " & inc1NameString
          WScript.Echo objItem.handle  & " " & objItem.parentprocessid  & " " & objItem.Name & " " & objItem.caption
      Next
 End Sub
+' ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----O
 
 '! https://books.google.es/books?id=h5pCAwAAQBAJ&pg=PT364&lpg=PT364&dq=vbs+run+sub+in+specific+namespace&source=bl&ots=pTAAIOFlS5&sig=0dbSi9ftRRSKXzEKBinXBv37Rh0&hl=en&sa=X&ved=0ahUKEwjqm43G4trbAhWrJsAKHXNmDXoQ6AEIRzAD#v=onepage&q=vbs%20run%20sub%20in%20specific%20namespace&f=false
 '! RecursiveList WMINamespaces.vbs
 Sub RListWNspaces()
+' ====+====1====+====2====+====3====+====4====+====5====+====6====+====7====+====8====+====9====+====0	
 	say Now
 	strComputer = "."
 	Call EnumNamespaces ("root", strComputer)
 	say "All done " & Now
 End Sub ' Sub RListWNspaces()
+' ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----O
 
 Sub EnumNamespaces(Nspace, Computer)
+' ====+====1====+====2====+====3====+====4====+====5====+====6====+====7====+====8====+====9====+====0	
 	say Nspace
 	Set objSWbemServices = GetObject("winmgmts:\\" & Computer & "\" & Nspace)
 	Set colNspaces = objSWbemServices.InstancesOf ("__NAMESPACE")
@@ -54,77 +59,148 @@ Sub EnumNamespaces(Nspace, Computer)
 		On Error Goto 0
 	
 	Next 
+' ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----O
 End Sub ' Sub EnumNamespaces(Nspace)
+}
 
 '!@ref Tom Laveda 2003, http://computer-programming-forum.com/59-vbscript/bc9ef89b8cb2b879.htm
-Function dos (DOSCmd)
-  Dim alines, sCmd, stemp, ofs, oWS
-  On Error Resume Next
-  '  sCmd = """%comspec%"" /c ""%comspec%"" /e:4096 /c " & DOSCmd & " >"
-  sCmd = "cmd.exe /c cmd.exe /e:4096 /c " & DOSCmd & " >"
-  set ofs = CreateObject("Scripting.FileSystemObject")
-  stemp = ofs.GetTempName
-  set oWS = CreateObject("Wscript.Shell")
-  stemp = oWS.Environment("PROCESS")("TEMP") & "\" & stemp
-  'sTemp = "dos.tmp"		' #### DEBUG
-  'sayerr "#### Running: oWS.Run " & sCmd & Chr(34) & sTemp & Chr(34) & " 2>&1, 0, true"		' #### DEBUG
-  oWS.Run sCmd & Chr(34) & sTemp & Chr(34) & " 2>&1", 0, true
+' ====+====1====+====2====+====3====+====4====+====5====+====6====+====7====+====8====+====9====+====0	
+{ Function dos (DOSCmd)
+	Dim alines, sCmd, stemp, ofs, oWS
+	On Error Resume Next
+	'  sCmd = """%comspec%"" /c ""%comspec%"" /e:4096 /c " & DOSCmd & " >"
+	sCmd = "cmd.exe /c cmd.exe /e:4096 /c " & DOSCmd & " >"
+	set ofs = CreateObject("Scripting.FileSystemObject")
+	stemp = ofs.GetTempName
+	set oWS = CreateObject("Wscript.Shell")
+	stemp = oWS.Environment("PROCESS")("TEMP") & "\" & stemp
+	'sTemp = "dos.tmp"		' #### DEBUG
+	'sayerr "#### Running: oWS.Run " & sCmd & Chr(34) & sTemp & Chr(34) & " 2>&1, 0, true"		' #### DEBUG
+	oWS.Run sCmd & Chr(34) & sTemp & Chr(34) & " 2>&1", 0, true
+	
+	' The Original function MSDOS splits each line of outupt into the array alines
+	' alines = Split(ofs.OpenTextFile(stemp).ReadAll, vbNewline)
+	' ReDim Preserve alines(Ubound(alines) - 1)
+	' if Err Then aLines = Split(Empty)
+	
+	' Here we just return the output directly as a multiline string
+	dos = ofs.OpenTextFile(stemp).ReadAll
+	ofs.DeleteFile stemp
+	if Err Then sayerr "DOS Error"	' This seems to have no effect after redirecting dos errout to stdout
 
-  ' The Original function MSDOS splits each line of outupt into the array alines
-  ' alines = Split(ofs.OpenTextFile(stemp).ReadAll, vbNewline)
-  ' ReDim Preserve alines(Ubound(alines) - 1)
-  ' if Err Then aLines = Split(Empty)
-
-  ' Here, we just return the output directly as a multiline string
-  dos = ofs.OpenTextFile(stemp).ReadAll
-  ofs.DeleteFile stemp
-  if Err Then sayerr "DOS Error"	' This seems to have no effect after redirecting dos errout to stdout
-
-  ' Dirty hack: Fix chr(255) which plagues redirected dos output due to codepage differences
-  dos = Replace(dos,chr(255)," ")	
+	' Dirty hack: Fix chr(255) which plagues redirected dos output due to codepage differences
+	dos = Replace(dos,chr(255)," ")	
 End Function 
+' ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----O
 
 Sub saydos (s)
 	say dos(s)
 End Sub
 }
 
-Responsable = " Mr. _Global_ President  "
+
+ 
+ { Sub ls (s)
+	Set FSO = CreateObject("Scripting.FileSystemObject")
+	Set objFolder = FSO.GetFolder(FSO.GetParentFolderName(WScript.ScriptFullName))
+	Set allFiles = objFolder.Files
+	For Each objFile in allFiles
+		Wscript.StdOut.Write objFile.Name & " "
+	Next
+	Wscript.StdOut.WriteLine ""
+ End Sub
+
+ Set dir = Getref("ls")
+
+ Sub fpath (s)
+	Set fso = CreateObject("Scripting.FileSystemObject")
+ 	Set sh = CreateObject("WScript.Shell")
+
+	For Each d In Split(sh.ExpandEnvironmentStrings("%PATH%"), ";")
+		Wscript.StdOut.WriteLine d
+		' TODO: 
+		'		- Filter based on search string
+		'		- Check if dir exists and mark with asterisk * or something 
+		'		- Detect repeated items
+		'		- Functions to add and remove stuff (?)
+
+	Next
+ End Sub
+}
+
+{ Sub benchMark (r, ByRef code)
+	benchCode = ""
+	benchCode = benchCode & "say ""Started: "" & time" & VBCrLf
+	benchCode = benchCode & "STime = timer" & VBCrLf
+	benchCode = benchCode & "For myindix = 1 to " & r & VBCrLf
+	benchCode = benchCode & code & VBCrLf
+	benchCode = benchCode & "Next" & VBCrLf
+	benchCode = benchCode & "say ""Finished: "" & time" & VBCrLf
+	benchCode = benchCode & "say ""Duration: "" & timer - STime" & VBCrLf
+	
+	'say "benchCode="&benchCode
+	ExecuteGlobal (benchCode)
+
+End Sub ' Sub benchMark (r, ByRef code)
+}
+
+'.say ==== Break 01
+
+{ Sub benchIt (r, ByRef code)
+	.say Started: $time
+	STime = timer
+	For myindix = 1 to r
+		ExecuteGlobal (code)
+	Next
+	.say Finished: $time
+	.say Duration: ${timer - STime}
+	
+End Sub ' Sub benchIt (r, ByRef code)
+}
+
+
+'.say ==== Break 02
+
+
+' Set global variable, to test below, whether global or local is printed
+Responsible = " Mr. _Global_ President  "
 
 {
 '! Test function vSayLvarq, short vbsCodetoSayLocalVarq
 Sub funny (s)
-	Dim myvar, Gtest1, Responsable
+	Dim myvar, Gtest1, Responsible
 	myvar = "funny myvar"
 	Gtest1 = "funny test1"
 
-	Responsable = " Little _Local_ Red Riding Hood  "
-	say VBCrLf&"simple say (unquoted):"
-	say "Responsable="&Responsable
+	' Set local variable, then test whether global or local is printed
+	Responsible = " Little _Local_ boss "
 
-	say VBCrLf&"comma dollar say:"
-	,say Responsable='$Responsable'
+	say VBCrLf&"simple say (unquoted):"
+	say "Responsible="&Responsible
+
+	say VBCrLf&"dot-dollar say:"
+	.say Responsible='$Responsible'
 
 	say VBCrLf&"preprocessed pSayLvarQ:"
-	#psaylvarq Responsable
+	#psaylvarq Responsible
 
 	say VBCrLf&"preprocessed pSayLvarcmQ:"
-	#psaylvarcmq Responsable
+	#psaylvarcmq Responsible
 
 	say VBCrLf&"preprocessed pSayLvar2cmQ:"
-	#psaylvar2cmq Responsable
+	#psaylvar2cmq Responsible
 
 	say VBCrLf&"preprocessed pSayLvar3cmQ:"
-	#psaylvar3cmq Responsable
+	#psaylvar3cmq Responsible
 
 	say VBCrLf&"with sayvarq:"
-	sayvarq "Responsable"
+	sayvarq "Responsible"
 
 	say VBCrLf&"with manual quotes:"
-	say "Responsable='"&Responsable&"'"
+	say "Responsible='"&Responsible&"'"
 	
 	say VBCrLf&"with vSayLvarq:"
-	execute vSayLvarq ("Responsable")
+	execute vSayLvarq ("Responsible")
 
 	Exit Sub
 

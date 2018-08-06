@@ -12,7 +12,7 @@ ProgName = "lookfor"
 '!_Date        : 2018-07-22-                                               '#### <DEBUGLINE>
 '  before running release, remove the "p_" in next two lines.              '#### <DEBUGLINE>
 '  after running release, put the "p" back and step revision.              '#### <DEBUGLINE>
-Version  = "0.07p01_"				'_Version
+Version  = "0.07p02_"				'_Version
 '!_Version     : 0.07p_                          #### <DEBUGLINE>
 '!_Description : Automated running/testing of CLI (Command Line Interface) applications
 '!				 (aka "console apps") in the win/dos environment
@@ -437,16 +437,19 @@ Sub say (s)
 	wscript.echo s
 end sub
 
+sub sayq (s)  ' say quoted ie. within quotes
+	wscript.echo "'" & s & "'"
+end sub
+
 sub sayerr (s)
 	WScript.StdErr.WriteLine s
 end sub
 
-'Marker: saydbg was here
-
-sub sayq (s)  ' say quoted ie. within quotes
+sub sayerrq (s)
 	WScript.StdErr.WriteLine "'" & s & "'"
 end sub
 
+'Marker: saydbg was here
 
 '! Import initialization script if present.
 Private Sub ImportLF_InitScript()
@@ -563,16 +566,14 @@ Sub RunVbshLine (line)
 		'! NOTE: Once Slave app is started you can send commands to it directly
 		'! 		 by simply preceding with ">" or "_" eg. _say "hello"
 		
-		ElseIf Left(line, 1) = ":" Then
-			say "Test output(preprocess_cmdline): " & preprocess_cmdline (mid(line,2))
-		ElseIf Left(line, 1) = "." Then
-			'RunVbshLine preprocess_cmdline (mid(line,2))
-			myExecuteGlobal preprocess_cmdline (mid(line,2))
 		ElseIf Left(line, 1) = ";" Then
-			'RunVbshLine preprocess_cmdline (mid(line,2))
-			say "Test output(cmdsubst): " & cmdsubst (line)
+			say "Test output(preprocess_cmdline): " & preprocess_cmdline (mid(line,2))
 		ElseIf Left(line, 1) = "," Then
 			'RunVbshLine preprocess_cmdline (mid(line,2))
+			myExecuteGlobal preprocess_cmdline (mid(line,2))
+		ElseIf Left(line, 1) = ":" Then
+			say "Test output(cmdsubst): " & cmdsubst (line)
+		ElseIf Left(line, 1) = "." Then
 			myExecuteGlobal cmdsubst (line)
 		ElseIf Left(line, 1) = ">" Then
 			ssend (mid(line,2))

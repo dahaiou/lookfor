@@ -9,46 +9,45 @@ say "Including: " & inc1NameString
 ' ====================================================================================================
 '_h2 TC TestCase function globals
 ' ====================================================================================================
-Dim TCnum			: TCnum				= 0			'! Testcase number eg. 1.3.7
-Dim TCtitle			: TCtitle			= 0			'! Testcase title (name)
-Dim TCsubNum		: TCsubNum			= 0			'! sub-Testcase number (plain number 1..n)
-Dim TCsubTitle		: TCsubTitle		= ""		'! sub-Testcase title (name)
-Dim bTCsendLogOn	: bTCsendLogOn		= False		'! bool: Log every command sent to Slave app on/off
-Dim bTCechoOn		: bTCechoOn			= False		'! bool: Echo on/off
-Dim bTCpass			: bTCpass			= False		'! bool: Testcase passed OK yes/no
-Dim sTCexpected		: sTCexpected		= ""		'! Expected string (regex)
-Dim sTCremain		: sTCremain			= ""		'! Remaining string
+	Dim TCnum			: TCnum				= 0			'! Testcase number eg. 1.3.7
+	Dim TCtitle			: TCtitle			= 0			'! Testcase title (name)
+	Dim TCsubNum		: TCsubNum			= 0			'! sub-Testcase number (plain number 1..n)
+	Dim TCsubTitle		: TCsubTitle		= ""		'! sub-Testcase title (name)
+	Dim bTCsendLogOn	: bTCsendLogOn		= False		'! bool: Log every command sent to Slave app on/off
+	Dim bTCechoOn		: bTCechoOn			= False		'! bool: Echo on/off
+	Dim bTCpass			: bTCpass			= False		'! bool: Testcase passed OK yes/no
+	Dim sTCexpected		: sTCexpected		= ""		'! Expected string (regex)
+	Dim sTCremain		: sTCremain			= ""		'! Remaining string
 
-Dim TCtotCount		: TCtotCount  		= 0			'! Count of Testcases Executed or attempted
-Dim TCpassCount		: TCpassCount 		= 0			'! Count of Testcases Passed OK
-Dim TCfailCount		: TCfailCount	 	= 0			'! Count of Testcases Failed
-Dim TCSubTotCount	: TCsubTotCount  	= 0			'! Count of sub-Testcases Executed or attempted
-Dim TCsubPassCount	: TCsubPassCount 	= 0			'! Count of sub-Testcases Passed OK
-Dim TCsubFailCount	: TCsubFailCount 	= 0			'! Count of sub-Testcases Failed
+	Dim TCtotCount		: TCtotCount  		= 0			'! Count of Testcases Executed or attempted
+	Dim TCpassCount		: TCpassCount 		= 0			'! Count of Testcases Passed OK
+	Dim TCfailCount		: TCfailCount	 	= 0			'! Count of Testcases Failed
+	Dim TCSubTotCount	: TCsubTotCount  	= 0			'! Count of sub-Testcases Executed or attempted
+	Dim TCsubPassCount	: TCsubPassCount 	= 0			'! Count of sub-Testcases Passed OK
+	Dim TCsubFailCount	: TCsubFailCount 	= 0			'! Count of sub-Testcases Failed
 
-Dim oTCfs			: Set oTCfs			= Nothing	'! object: FileSystem object for manipulating TC log files
-Dim oTClogFile		: Set oTClogFile	= Nothing	'! TC log file (single one, if not using array of logfiles)
-Dim TCfileName		: TCfileName		= ""		'! Name of Test File being executed
-Dim TClogFileName	: TClogFileName		= ""		'! Name of Logfile being written to
-
-
-ReDim aTClogFiles (4)								'! array: open TClogFiles (not sure if needed)
-Dim   TClogFilesCount	: TClogFilesCount = 0		'! Count of open TClogFiles  (not sure if needed)
+	Dim oTCfs			: Set oTCfs			= Nothing	'! object: FileSystem object for manipulating TC log files
+	Dim oTClogFile		: Set oTClogFile	= Nothing	'! TC log file (single one, if not using array of logfiles)
+	Dim TCfileName		: TCfileName		= ""		'! Name of Test File being executed
+	Dim TClogFileName	: TClogFileName		= ""		'! Name of Logfile being written to
 
 
- Dim oTCregx, oTCmatch
- Set oTCregx  = Nothing
- Set oTCmatch = Nothing
+	ReDim aTClogFiles (4)								'! array: open TClogFiles (not sure if needed)
+	Dim   TClogFilesCount	: TClogFilesCount = 0		'! Count of open TClogFiles  (not sure if needed)
 
-<:
 
+	Dim oTCregx, oTCmatch
+	Set oTCregx  = Nothing
+	Set oTCmatch = Nothing
+
+{
  If Not TypeName (oTCfs) = "FileSystemObject" Then
 	set oTCfs = Nothing
 	set oTCfs = CreateObject("Scripting.FileSystemObject")
  End If
-:>
+}
 
- <:
+{
 
  '! Open TestCase Logfile
  Sub TCopenLogFile (fname)
@@ -97,42 +96,82 @@ Sub saydos (s)
 	say dos(s)
 End Sub
 
-:>
+}
 
-<:
-Private oRxSSubst 		: Set oRxSSubst 	= NewRegExp("\${([a-zA-Z]\w*)}|\$([a-zA-Z]\w*)", 	True, True)
-Private oRxCurlySubst 	: Set oRxCurlySubst = NewRegExp("{([^}]*)}([\s\S]*)$|{([\s\S]*)$", 		True, True)
-Private oRxShSubst 		: Set oRxShSubst 	= NewRegExp("\%{(\w+)}|\%(\w+)%?", 					True, True)
-Function ssubst (s)
-	'Substitute variables in a string. Example, the string:
-	'	"It is now $time and $linecount lines have been read so far"
-	' Is turned into:
-	'	"It is now " & time & " and " & linecount & " lines have been read so far"
-	Dim argstr, remain
-	argstr = ""
-	remain = ""
+' ====+====1====+====2====+====3====+====4====+====5====+====6====+====7====+====8====+====9====+====0
+'_h1 Global RegExpressions for parsing code
+	' ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----O
 
-	'Gosh.ExpandEnvironmentStrings("%PATH%")
-	oRxSSubst.Global = True
-	ssubst = oRxSSubst.Replace(s, """ & $1$2 & """)
-	oRxShSubst.Global = True
-	ssubst = oRxShSubst.Replace(ssubst, """ & Gosh.ExpandEnvironmentStrings(""%$1$2%"")  & """)
-	'First case: s did not have initial quote but ssubst does.
-	'	This means s began with a $substitution and we must supply another initial quote for things to work
-	if Not Left(rxLtrim(s),1) = """" And Left(rxLtrim(ssubst),1) = """" Then ssubst = """" & ssubst
-	'Second case: s ended with a $substitution and we must supply an extra quote at the end
-	if Not Right(rxRtrim(s),1) = """" And Right(rxLtrim(ssubst),1) = """" Then ssubst = ssubst & """"
+	'   oRxDlrSubst : Substitution of "Dollar syntax" ie. $varname or ${varname} or ${expression}
+	' 	This pattern only matches the first occurrence, independent of what comes before or after
+	'Dim oRxDlrSubst 		: Set oRxDlrSubst 		= NewRegExp("\${([a-zA-Z]\w*)}|\$([a-zA-Z]\w*)", 	True, False)
+	Dim oRxDlrSubst 		: Set oRxDlrSubst 		= NewRegExp("\${([^}]*)}|\$([^\W0-9]\w*)", 	True, False)
 
-	'Third case: Supply initial quote if not present.
-	if Not Left(rxLtrim(ssubst),1) = """" Then ssubst = """" & ssubst
-	'Fourth case: Supply final quote if not present
-	if Not Right(rxRtrim(ssubst),1) = """" Then ssubst = ssubst & """"
-End Function ' Function ssubst (s)
+	'   oRxDlr2Eol : Substitution of "Dollar syntax" ie. $varname or ${varname} or ${<expression>}
+	' 	Matches from dollar sign to end-of-line. The dollar sign $ must be the first non-blank char on the line
+	' 	Returns varname (or expression) in $1$3 and remaining text in $2$4
+	Dim oRxDlr2Eol 		: Set oRxDlr2Eol 		= NewRegExp("^[^\S\n]*\${([^}]*)}([\s\S]*)|^[^\S\n]*\$([^\W0-9]\w*)([\s\S]*)$", 	True, False)
 
-'Private oRxIniPunct : Set oRxIniPunct = NewRegExp("^[^\S\n]*[,.;:_\\\|\@\#\~!$%&=?+-*/]", True, True)
-Private oRxIniPunct : Set oRxIniPunct = NewRegExp("^[^\S\n]*[,.;:_\\\|\@\#\~!$%&=?\+\-\*\/]", True, True)
-Private oRxIniToken : Set oRxIniToken = NewRegExp("^([^\S\n]*[a-zA-Z]\w*)([\s\S]*)$", True, True)
-Function cmdsubst (ByRef s)
+
+	Dim oRxCurlySubst 	: Set oRxCurlySubst 	= NewRegExp("{([^}]*)}([\s\S]*)$|{([\s\S]*)$", 		True, True)
+	Dim oRxShSubst 		: Set oRxShSubst 		= NewRegExp("\%{(\w+)}|\%(\w+)%?", 					True, True)
+
+	Dim oRxSplitmark	: Set oRxSplitmark 		= NewRegExp("^([^\$\%\{\""']*)([\s\S]*)$", 	True, False)
+
+	'   oRxSplitDquote	: Match "<text>"<rest>". <text> within double-quotes is returned as $1. <rest> as $2
+	Dim oRxSplitDquote	: Set oRxSplitDquote 	= NewRegExp("^([^""]*)""?([\s\S]*)$", 		True, False)
+	'   oRxSplitDquote2 : Match "<text>"<rest>". Same as oRxSplitDquote except that the final double-quote is included in $2
+	Dim oRxSplitDquote2	: Set oRxSplitDquote2 	= NewRegExp("^([^""]*)([\s\S]*)$", 			True, False)
+	'   oRxQuotesx2		: Replace all doublequotes with two double-quotes
+	Dim oRxQuotesx2		: Set oRxQuotesx2	 	= NewRegExp("("")", 			True, True)
+
+	Dim oRxRightCurly	: Set oRxRightCurly 	= NewRegExp("^([^}]*)([\s\S]*)$", 			True, False)
+
+	'   oRxCurlyMissing : Match "{<rest-of-string>" with right-curly "}" missing. <rest-of-string> is returned as $1
+	' 	Initial left-curly "{" is assumed whether present or not
+	Dim oRxCurlyMissing	: Set oRxCurlyMissing 	= NewRegExp("^\s*{?([^}]*)$",	 			True, False)
+	'   oRxCurlyEmpty	: Match "{<whitespace-or-empty>}<rest_of_string>". <whitespace-or-empty> returned as $1, <rest_of_string> as $2
+	' 	Initial left-curly "{" is assumed whether present or not
+	Dim oRxCurlyEmpty	: Set oRxCurlyEmpty 	= NewRegExp("^\s*{?(\s*)}([\s\S]*)$",		True, False)
+	
+	' #### DEBUG: Remove !!!
+	'   oRxCurlyNormal	: Match "{<normal-string>}<rest_of_string>". <normal-string> returned as $1, <rest_of_string> as $2
+	' 	Initial left-curly "{" is assumed whether present or not
+	' NOT USED:Dim oRxCurlyNormal	: Set oRxCurlyNormal 	= NewRegExp("^\s*{?([^}]*)}([\s\S]*)$",		True, False)
+
+
+	'   oRxCurlyQ		: Match quoted text within curly-braces. Text before/within/after quotes returned in $1/$2/$3 respectively
+	Dim oRxCurlyQ		: Set oRxCurlyQ = NewRegExp("^([^}""]*)(""[^""]*""?)([\s\S]*)$", true, true)
+	'   oRxCurlyEnd		: Match normally-ending curly-brace expression . Text within/after end-curly returned in $1/$2 respectively
+	Dim oRxCurlyEnd		: Set oRxCurlyEnd = NewRegExp("^([^}""]*)}([\s\S]*)$", true, true)
+
+	' oRxCurlyAdvanced :  used for debugging
+	Dim oRxCurlyAdvanced: Set oRxCurlyAdvanced = NewRegExp("^([^\}""]*)(""[^""]*""?)([\s\S]*)$|^([^\}""]*)\}([\s\S]*)$", true, true)
+
+
+
+
+	'Dim oRxIniPunct : Set oRxIniPunct = NewRegExp("^[^\S\n]*[,.;:_\\\|\@\#\~!$%&=?+-*/]", True, True)
+	Dim oRxIniPunct : Set oRxIniPunct = NewRegExp("^[^\S\n]*[,.;:_\\\|\@\#\~!$%&=?\+\-\*\/]", True, True)
+	'Dim oRxIniToken : Set oRxIniToken = NewRegExp("^([^\S\n]*[a-zA-Z]\w*[^\S\n]?)([\s\S]*)$", True, True)
+	Dim oRxIniToken : Set oRxIniToken = NewRegExp("^([^\S\n]*[^\W0-9]\w*[^\S\n]?)([\s\S]*)$", True, True)
+
+	'   oRxIniToken2 : Match "(_@)(_<identifier>_)(<rest of string>)" where "_" is Whitespace, "@" is any punctuation
+	' 	Returns: $1 = punctuation (or empty), $2 = identifier (required), $3 = rest of string (or empty)
+	Dim oRxIniToken2 : Set oRxIniToken2 = NewRegExp("^([^\S\n]*[^\W0-9]\w*=?[^\S\n]?)([\s\S]*)$", True, True)
+
+	rWSpace="[^\S\n]*"
+	rPunct="[,.;:_\\\|\@\#\~!$%&=?\+\-\*\/]"
+	rIdfier="[^\W0-9]\w*"
+
+	Dim oRxIniPuncToken : Set oRxIniPuncToken = NewRegExp("^([^\S\n]*[,.;:_\\\|\@\#\~!$%&=?\+\-\*\/])([^\S\n]*[^\W0-9]\w*[^\S\n]?)([\s\S]*)$", True, True)
+	Dim oRxWspace	: Set oRxWspace = NewRegExp("^([^\S\n]*)([\s\S]*)$", True, True)
+
+'_/h1 Global RegExpressions for parsing code
+
+
+' ====+====1====+====2====+====3====+====4====+====5====+====6====+====7====+====8====+====9====+====0	
+{ Function cmdsubst (ByRef s)
 	Dim token, argstr, remain
 	token = ""
 	argstr = ""
@@ -140,30 +179,25 @@ Function cmdsubst (ByRef s)
 
 	' Remove initial (only one) punctuation character, any of ",.;:_\|@#~!"·$%&=?¿+-*/"
 	remain = oRxIniPunct.Replace (s, "")
-	If oRxIniToken.Test (remain) Then
-		token  = oRxIniToken.Replace (remain, "$1")
-		remain = oRxIniToken.Replace (remain, "$2")
+	If oRxIniToken2.Test (remain) Then
+		token  = oRxIniToken2.Replace (remain, "$1")
+		remain = oRxIniToken2.Replace (remain, "$2")
 	End If
 	If Left(remain,1) = " " Then remain = Mid(remain, 2)		' Remove one initial space if present
 
-	'While Not remain = ""
-
-	'Wend
-	
-
-
-
-	'remain = ssubst(remain)
 	remain = argsubst(remain)
 
-	'sayq "token="&token
-	'sayq "remain="&remain
-
+	'saydbg "@cmdsubst token="&token
+	'saydbg "@cmdsubst remain="&remain
 	cmdsubst = token & " " & remain
+	'cmdsubst = token & " " & """" & remain & """"
 
-End Function ' Function cmdsubst (s)
+  End Function ' Function cmdsubst (s)
+' ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----O
+}
 
-Function funcsubst (ByRef s)
+' ====+====1====+====2====+====3====+====4====+====5====+====6====+====7====+====8====+====9====+====0	
+{ Function funcsubst (ByRef s)
 	Dim token, argstr, remain
 	token = ""
 	argstr = ""
@@ -180,44 +214,36 @@ Function funcsubst (ByRef s)
 	remain = argsubst(remain)
 
 	funcsubst = token & "(" & remain & ")"
+	'funcsubst = token & "(""" & remain & """)"
 
 End Function ' Function funcsubst (s)
+' ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----O
+}
 
-:>
-
-
-Private oRxSplitmark	: Set oRxSplitmark 		= NewRegExp("^([^\$\%\{\""]*)([\s\S]*)$", 	True, False)
-Private oRxSplitDquote	: Set oRxSplitDquote 	= NewRegExp("^([^""]*)([\s\S]*)$", 			True, False)
-Private oRxRightCurly	: Set oRxRightCurly 	= NewRegExp("^([^}]*)([\s\S]*)$", 			True, False)
-
-Private oRxCurlyMissing	: Set oRxCurlyMissing 	= NewRegExp("^\s*{?([^}]*)$",	 			True, False)
-Private oRxCurlyEmpty	: Set oRxCurlyEmpty 	= NewRegExp("^\s*{?(\s*)}([\s\S]*)$",		True, False)
-Private oRxCurlyNormal	: Set oRxCurlyNormal 	= NewRegExp("^\s*{?([^}]*)}([\s\S]*)$",		True, False)
-
+' ====+====1====+====2====+====3====+====4====+====5====+====6====+====7====+====8====+====9====+====0	
 { Function argsubst(ByRef s)
-	Dim result, leftstr, remain, state
+	Dim result, leftstr, remain
 	result = ""
 	leftstr = ""
 	remain = s
-	state = 0		' 0=normal, 1=doublequote, 2=singlequote, 3=curly, 4=dollar, 5=percent, 
 
 	i=0
 	Do While Not remain = ""
-		'say "=============================="
-		'sayq "remain="&remain
+		saydbg   "@argsubst =============================="
+		saydbgq  "@argsubst remain="&remain
 		leftstr = oRxSplitmark.Replace(remain, "$1")
 		remain  = oRxSplitmark.Replace(remain, "$2")
 		
-		'sayq "result="&result
-		'sayq "leftstr="&leftstr
-		'sayq "remain="&remain
+		'saydbgq  "@argsubst result="&result
+		'saydbgq  "@argsubst leftstr="&leftstr
+		'saydbgq  "@argsubst remain="&remain
 		splitmark=Left(remain, 1)
-		'say  "splitmark="&splitmark
+		saydbg  "@argsubst splitmark="&splitmark
 
 		' pass the "normal text" in leftstr to the "left side" ie. append it to result
 		' NOTE: In some special cases the last character is removed in the logic below
 		result = result & leftstr		
-										
+		saydbgq  "@argsubst result="&result
 
 		' "escaped" splitmark found ie. it does not count
 		' just pass the splitmark to the "left side" ie. append it to result	
@@ -247,30 +273,33 @@ Private oRxCurlyNormal	: Set oRxCurlyNormal 	= NewRegExp("^\s*{?([^}]*)}([\s\S]*
 	
 		ElseIf splitmark = """" Then	' Handle double-quote substring
 			result = result & """"""	' "double" the double-quote and append to result
-			'sayq "at start of quote, result="&result
+			saydbgq  "@argsubst at start of quote, result="&result
 			remain = Mid(remain, 2)		' remove splitmark from remaining string
 			' Find closing double-quote
-			leftstr = oRxSplitDquote.Replace(remain, "$1")
-			remain = oRxSplitDquote.Replace(remain, "$2")
+			leftstr = oRxSplitDquote.Replace(remain, "$1")		'Get text up to the next quote, or end of string if no quote found
+			remain = oRxSplitDquote.Replace(remain, "$2")		'Get remaining text, after next quote, if quote and any text found
 			result = result & leftstr & """"""		' Append quoted string closed with doubled close-quote
-			'sayq "at end of quote, result="&result
-			remain = Mid(remain, 2)		' remove close-quote from remaining string
+			saydbgq  "@argsubst at end of quote, result="&result
+			' remain = Mid(remain, 2)		' remove close-quote from remaining string
 	
 		ElseIf splitmark = "'" Then	'Handle single-quote ie. comment string until eol
+			result = result & oRxQuotesx2.Replace (remain, "$1$1")
 			remain = ""			' Empty remain will cause immediate exit from loop
 								' NOTE: multi-line input not handled here. If so we need to delete only to eol and continue
 
 		ElseIf splitmark = "$" Then	'Handle $varname and ${varname}
 			' Extract the first $variable substitution from remain
 			' The logic below depends on knowing the fact that the first substitution begins in position 1
-			' and after substitution the first double-quote will be in char position 1
-			oRxSSubst.Global = False
-			remain = oRxSSubst.Replace(remain, """ & $1$2 & """)	' Do just one $substitution (at pos 1 in remain)
-			qpos = InStr(2, remain, """")			' Find pos of second quote char (we know first one is in pos 1 )
-			'sayq "$substitution done, remain="&remain
-			result = result + Left(remain, qpos)	' append the variable substitution to result
-			remain = Mid(remain, qpos + 1)			' and remove it from the beginning of remaining str
-			'sayq "...and remaining remain="&remain
+			' and after substitution the first double-quote, that we just inserted, will be in char position 1
+			oRxDlr2Eol.Global = False
+			saydbgq  "@argsubst About to do $substitution, remain="&remain
+			leftstr = oRxDlr2Eol.Replace(remain, """ & $1$3 & """)	' extract the replacement <str>, from either format: $str or ${str}
+			remain  = oRxDlr2Eol.Replace(remain, "$2$4")			' Remaining text
+			qpos = InStr(2, remain, """")			' Find pos of second just-inserted quote char (we know first one is in pos 1 )
+					' HOWEVER - This FAILS if the replacement string contained double-quotes
+			result = result + leftstr	' append the variable or expression substitution to result
+			saydbgq  "@argsubst $substitution done, leftstr="&leftstr
+			saydbgq  "@argsubst ...and remaining remain="&remain
 
 		ElseIf splitmark = "%" Then	'Handle %varname, %varname%, %{varname}
 			' Extract the first %variable substitution from remain
@@ -281,68 +310,89 @@ Private oRxCurlyNormal	: Set oRxCurlyNormal 	= NewRegExp("^\s*{?([^}]*)}([\s\S]*
 			remain = oRxShSubst.Replace(remain, """ & Gosh.ExpandEnvironmentStrings(""%$1$2%"")  & """)
 			qpos = InStr(2, remain, ")")			' First right bracket (we know the quote char we want comes right after that )
 			qpos = InStr(qpos, remain, """")		' Find pos of the final quote char at end of substitution
-			'sayq "%substitution done, remain="&remain
+			'saydbgq  "@argsubst %substitution done, remain="&remain
 			result = result + Left(remain, qpos)	' append the variable substitution to result
 			remain = Mid(remain, qpos + 1)			' and remove it from the beginning of remaining str
-			'sayq "...and remaining remain="&remain
+			'saydbgq  "@argsubst ...and remaining remain="&remain
 
 		ElseIf splitmark = "{" Then	'Handle curly-brace expression {expr}
-
-			Subst1   = oRxCurlySubst.Replace(remain, "$1")
-			Subst2   = oRxCurlySubst.Replace(remain, "$2")
-			Subst3   = oRxCurlySubst.Replace(remain, "$3")
+			remain = Mid(remain, 2)		' remove opening curly-brace from remaining string
+			leftstr = ""
+			saydbgq  "@argsubst At start of curly: remain="&remain
 
 			If oRxCurlyMissing.Test(remain)  Then
 				sayerr "Error: Closing curly-brace missing in line ..."
-				leftstr = ""
-				remain = Mid(remain, 2)		' remove opening curly-brace from remaining string
-				sayq "remain="&remain
+				sayerrq "remain="&remain
 				
 			ElseIf oRxCurlyEmpty.Test(remain)  Then
-				leftstr = ""
 				remain  = oRxCurlyEmpty.Replace (remain, "$2")
-				say  "Whitespace or empty string withing curly-braces"
-				sayq "remain="&remain
-
-			ElseIf oRxCurlyNormal.Test(remain)  Then
-				leftstr = oRxCurlyNormal.Replace (remain, "$1")
-				remain  = oRxCurlyNormal.Replace (remain, "$2")
-
-				' TODO: Test with: a. curly not closed b. curly at end of line c. curly empty {}
-				say  "==== about to ExecuteGlobal:"
-				sayq "leftstr="&leftstr
-				sayq "remain="&remain
-
-				' Now globalexecute the expression found inside the curly braces
-
-				strictErrExit = False
-				On Error Resume Next
-				Err.Clear
-				'say "ExecuteGlobal (""GsubstVar=""&trim("&leftstr&"))"		' *** DEBUG
-				'ExecuteGlobal "GsubstVar="&trim(leftstr)
-				' sayq "about to ExecuteGlobal: GsubstVar="""" & "&trim(leftstr)
-				ExecuteGlobal "GsubstVar="""" & "&trim(leftstr)
-				' GsubstVar = Eval(leftstr)
-				If Err.Number <> 0 Then
-					sayerr f_error & "Unable to substitute variable or expression: """ & trim(leftstr) & """"
-					sayerr Trim(Err.Description & " (0x" & Hex(Err.Number) & ")")
-					GsubstVar=""
-					If strictErrExit Then		' strictErrExit means quit on first error leaving the whole line unparsed
-						Exit Function
-					Else 
-						' GsubstVar="{" & s & "}" 	' putting the erroneous string back in was an experiment, but not a good idea.
-						' This way {<invalid expression>} is just removed, including the curlies
-					End If
-				End If
-				On Error Goto 0
-				result = result & GsubstVar ' Append resulting string (leftstr still holds the original expression before execution)
+				saydbg  "@argsubst Whitespace or empty string withing curly-braces"
+				saydbgq  "@argsubst remain="&remain
 
 			Else
-				sayerr "Error: Internal logic failed. Case not covered by existing Regexp strings:"
-				sayerrq "Remaining string: remain="&remain
+				
+				If oRxCurlyQ.Test(remain)  Then		' In case of quoted text blocks found within the curly-brace expression:
+													'	copy everything up to the last quoted block into leftstr
+					saydbgq  "@argsubst Quoted block found in curly: remain="&remain
 
+					Do While oRxCurlyQ.Test(remain) And Not remain = ""
+						leftstr = leftstr & oRxCurlyQ.Replace (remain, "$1$2")
+						remain = oRxCurlyQ.Replace (remain, "$3")
+						saydbgq  "@argsubst leftstr="&leftstr
+						If Not Right(leftstr,1) = """" Then
+							' Error: End quote not found
+							Exit Do
+						End If
+					Loop
+				End If
+
+
+				If oRxCurlyMissing.Test(remain)  Then		' Test this again: Closing curly-brace missing might have gone undetected above,
+															' in case there was one within quotes but not a valid one.
+					sayerr "Error: Closing curly-brace missing in line ..."
+					sayerrq "remain="&remain
+	
+
+				ElseIf oRxCurlyEnd.Test(remain)  Then
+					leftstr = leftstr & oRxCurlyEnd.Replace (remain, "$1")
+					remain  = oRxCurlyEnd.Replace (remain, "$2")
+
+					' TODO: Test with: a. curly not closed b. curly at end of line c. curly empty {}
+					saydbg  "@argsubst ==== about to ExecuteGlobal, input string="&leftstr
+					saydbgq "@argsubst remain="&remain
+
+					' Now globalexecute the expression found inside the curly braces
+
+					strictErrExit = False
+					On Error Resume Next
+					Err.Clear
+					'say "ExecuteGlobal (""GsubstVar=""&trim("&leftstr&"))"		' *** DEBUG
+					'ExecuteGlobal "GsubstVar="&trim(leftstr)
+					' sayq "about to ExecuteGlobal: GsubstVar="""" & "&trim(leftstr)
+					ExecuteGlobal "GsubstVar="""" & "&trim(leftstr)
+					' GsubstVar = Eval(leftstr)
+					If Err.Number <> 0 Then
+						sayerr f_error & "Unable to substitute variable or expression: """ & trim(leftstr) & """"
+						sayerr Trim(Err.Description & " (0x" & Hex(Err.Number) & ")")
+						GsubstVar=""
+						If strictErrExit Then		' strictErrExit means quit on first error leaving the whole line unparsed
+							Exit Function
+						Else 
+							' GsubstVar="{" & s & "}" 	' putting the erroneous string back in was an experiment, but not a good idea.
+							' This way {<invalid expression>} is just removed, including the curlies
+						End If
+					End If
+					On Error Goto 0
+					saydbgq  "@argsubst ==== After ExecuteGlobal, resulting string="&GsubstVar
+					result = result & GsubstVar ' Append resulting string (leftstr still holds the original expression before execution)
+
+				Else
+					sayerr "Error (argsubst): Internal logic failed in curly-brace expression. Case not covered by existing Regexp strings:"
+					sayerrq "Original input string: s="&remain
+					sayerrq "Remaining string: remain="&remain
+
+				End If
 			End If
-
 		End If
 
 		'remain = Mid(remain, 2)
@@ -354,83 +404,16 @@ Private oRxCurlyNormal	: Set oRxCurlyNormal 	= NewRegExp("^\s*{?([^}]*)}([\s\S]*
 	'sayq "result="&result
 	argsubst = result
 End Function ' Function argsubst(s)
+' ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----O
+
+Function argsubs2 (ByRef s)
+	argsubs2 = argsubst (s)
+	argsubst2 = Mid(argsubs2, 2)
+	argsubst2 = Left(argsubs2, Len (argsubs2) - 1)
+End Function
 }
 
 {
- '! : Checking Global_sPipeClass_defined
- If Global_sPipeClass_defined Then
-	sayerr "Warning: Class cannot be redefined. Skipping sPipeClass."
-	GlobalDiscardNextBlock = True
-	' wscript.sleep(500)
- End If
-}   
- 
-'*wscript.sleep(100)
-'*say "Just slept 100"
-'If GlobalDiscardNextBlock Then say "GlobalDiscardNextBlock is True"
-
-' Note, without the following line GlobalDiscardNextBlock does not work the first time through here
-' 		Starting from the second time it works OK without
-'If GlobalDiscardNextBlock Then dummy = 0
-
-'If Global_sPipeClass_defined Then GlobalDiscardNextBlock = True
-{   '<: 'sPipeClass
- ' '!: Silly String Pipe functions - NB: Initial '!: Generates "Direct" .vbst parse-time comment output
- '# If Global_sPipeClass_defined Then GlobalDiscardThisBlock = True
-  Global_sPipeClass_defined = True
-
-  '#.say ##############  Wonderful HASHmark Subsitution ################
- ' '!: Just about to declare sPipeClass - NB: Initial '!: Generates "Direct" .vbst parse-time comment output
- class sPipeClass
-	Dim Subscribers()
-	Dim SubsCount, sBuf
-
-	Sub Write(s)
-		' Do stuff
- 	End Sub
-
-	Sub Writeline(s)
-		' Do stuff
-	End Sub
-	
-	Function GetBuf()
-		' Do stuff
-	End Function
- 	
- End Class
-
-}
-
-{sayerr "#### DEBUG INSIDE Curlies ..."
-sayerr "#### Happy days with close token }" }
-
-sayerr "#### DEBUG will this show ???"
-
-sayerr "Still running after sPipeClass"
-
-<:
-
-' Prints the time at parse-time, ie. time when this code was read in
-Sub saytime1()
- .say Current time1: {Time}
-End Sub
-
-' Prints the literal string "Current time1: {Time}" without substitution of {Time}
-Sub saytime2()
- say "Current time1: {Time}"
-End Sub
-
-' Prints the current time when executed, 
-Sub saytime3()
- say "Current time1: " & Time
-End Sub
-
-' Prints the current time when ??? 
-Sub saytime4()
-	a=ssubst ("Current time1: $Time")
-	say a
-End Sub
-
 
 ' ====================================================================================================
 ' ====================================================================================================
@@ -487,10 +470,10 @@ Sub TCwriteLogFile (ByRef filePath, ByRef s)
 	Set fso = Nothing
 
 end Sub ' Sub TCwriteLogFile ()
-:>
+}
 
 
-<:
+{
  '_h2 TCNew (s) - Start New TestCase: Reset relevant bookkeeping vars and announce in log output
  ' ====================================================================================================
 Sub TCNew (s)
@@ -509,18 +492,23 @@ Sub TCNew (s)
 
 
 	' Set data, Note these vars are all global, reflecting current test case and sub-case
-	TCnum     = sArr(0)
-	TCtitle   = sArr(1)
-	TCnumber2 = ""		' sub-number and -title
-	TCtitle2  = ""
+	TCnum		= sArr(0)
+	TCtitle		= sArr(1)
+	TCsubNum	= 0
+	TCtitle2	= ""
 
 	' Log what's going on
 	TClog ""
 	TClog replace_args ("TestCase: {TCnum} {TCtitle}")
 	TClog "===================================================================================================="
 End Sub ' Sub TCNew (s)
-:>
-<:
+' ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----O
+}
+
+' ====+====1====+====2====+====3====+====4====+====5====+====6====+====7====+====8====+====9====+====0	
+
+
+{
 '_h2 TClog (s) - Write to TC log output ie. stdout and any outfiles defined
 ' ====================================================================================================
 ' TODO: Outfiles NIY, Also: control verbosity level with global variables
@@ -529,21 +517,29 @@ Sub TClog (s)
 	oTClogFile.WriteLine(s)
 End Sub ' Sub TClog (s)
 
-'_h2 TCcheckResult (line, expected) - Check result of TestCase, update bookkeeping and write log outputs
+Sub TCcheckResult (ByRef line, ByRef expected)
+	Dim caption: caption = ""
+	TCcheckSubResult caption, line, expected
+End Sub ' ...
+
+
+'_h2 TCcheckSubResult (caption, line, expected) - Check result of TestCase, update bookkeeping and write log outputs
 ' ====================================================================================================
 '!@TODO: ...
 '! Options to:
 '!		o -i Ignorecase (default is false)
-'!		o (Default): Remove the matched pattern
+'!		o (Default): Remove the matched pattern (in case it matched)
 '!		o -R Do NOT Remove anything
 '!		o -l Remove the line where the matched pattern was found
 '!		o Remove from beginning up to the matched pattern
 '!		o Remove from beginning up to end of line where pattern found
 '!		o 
 '!		o 
-Sub TCcheckResult (ByRef line, expected)
+Sub TCcheckSubResult (ByRef caption, ByRef line, ByRef expected)
 	' Preparation
-	' saydbg "TCcheckResult enter"			' **** DEBUG
+	saydbg "@TCcheckResult enter"			' **** DEBUG
+	TCsubNum = TCsubNum + 1
+
 	If oTCregx is Nothing then
 		Set oTCregx = New RegExp
 		oTCregx.global = false
@@ -552,11 +548,11 @@ Sub TCcheckResult (ByRef line, expected)
 
 '	oTCregx.pattern = "(" & expected & ")([\s\S]*)"
 	oTCregx.pattern = expected
-	'	saydbg "TCcheckResult about to execute pattern:" & "(" & expected & ")([\s\S]*)"			' **** DEBUG
+	saydbg "@TCcheckResult about to execute pattern:" & "(" & expected & ")([\s\S]*)"			' **** DEBUG
 	Set oTCmatch = oTCregx.Execute(line)
 
 	
-	'	saydbg "Now checking if matched or not"			' **** DEBUG
+	'	saydbg "@TCcheckResult Now checking if matched or not"			' **** DEBUG
 	' Now check if it matched or not
 	' If oTCmatch.Count > 0 Then
 	If oTCregx.Test(line) Then
@@ -567,45 +563,22 @@ Sub TCcheckResult (ByRef line, expected)
 		'max = oTCmatch(0).submatches.Count-1
 		'TCremain = oTCmatch(0).submatches(max)
 		TCremain = oTCregx.Replace (line, "")
-		TClog replace_args ("==== Result: TC-{TCnum} OK")
+		line = TCremain
+		'TCcheckMessage = argsubs2 ("==== Result: TC-$TCnum $caption OK")
+		'TClog argsubs2 ("==== Result: TC-$TCnum $caption OK")
+		'.TCcheckMessage= ==== Result: TC-$TCnum $caption OK
+		.TCcheckMessage= ==== Result OK: TC-$TCnum.$TCsubNum $caption
+		TClog TCcheckMessage
 	Else
 		TCsuccess = False
 		iTCTotCount  = iTCTotCount  + 1
 		iTCFailCount = iTCFailCount + 1
-		TClog replace_args ("==== Result: TC-{TCnum} #### FAILED ####")
+		'TClog argsubs2 ("==== Result: TC-$TCnum $caption #### FAILED ####")
+		'.TCcheckMessage= ==== Result: TC-$TCnum $caption #### FAILED ####
+		.TCcheckMessage= #### FAILED ####: TC-$TCnum.$TCsubNum $caption
+		TClog TCcheckMessage
 
 	End If
- End Sub ' Sub TCcheckResult (line, expected)
-
- Set dir = Getref("ls")
-
- Sub ls (s)
-	Set FSO = CreateObject("Scripting.FileSystemObject")
-	Set objFolder = FSO.GetFolder(FSO.GetParentFolderName(WScript.ScriptFullName))
-	Set allFiles = objFolder.Files
-	For Each objFile in allFiles
-		Wscript.StdOut.Write objFile.Name & " "
-	Next
-	Wscript.StdOut.WriteLine ""
- End Sub
-
- Sub fpath (s)
-	Set fso = CreateObject("Scripting.FileSystemObject")
- 	Set sh = CreateObject("WScript.Shell")
-
-	For Each d In Split(sh.ExpandEnvironmentStrings("%PATH%"), ";")
-		Wscript.StdOut.WriteLine d
-		' TODO: 
-		'		- Filter based on search string
-		'		- Check if dir exists and mark with asterisk * or something 
-		'		- Detect repeated items
-		'		- Functions to add and remove stuff (?)
-
-	Next
- End Sub
-
-
-
-
- :>
+ End Sub ' Sub TCcheckSubResult (ByRef caption, ByRef line, ByRef expected)
+}
 

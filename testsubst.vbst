@@ -1,0 +1,33 @@
+If SlaveExec Is Nothing Then: NewCmdLookfor: End If
+'NewCmdLookfor
+
+TCsendlogOn = True
+HideSlavePrompt = True
+
+' =================================================================================================
+. TCNew 0.00 Intro Messages
+' =================================================================================================
+say "Running Test number " & TCnum
+_.say Running Test: {TCnum} (YEEAAASS, name substitution is working NOW !!!)
+_.say Echoing 3*4 here: {3*4} (YEEAAASS, if you see 12, expr substitution is working too !!!)
+
+' =================================================================================================
+. TCNew 0.01 Test argsubst with multiple elements
+' =================================================================================================
+' _ .dbg add getopts ' Debug messages for getopts need to be turned on in slave process
+'say "string to test: " & "<tab><space><tab><space>cmd time ""n{o}w"" to {""Clock {says\}: "" & time} to look $mystring at mystring: {mystring} ' And a ""trailing comment"
+_ mystring = ".my-string."
+_ args = VBTab & " " & VBTab & " "
+_ args = args & "cmd time ""n{o}w"" to {""Clock {says\}: "" & time} to look $mystring at mystring: {mystring} ' And a ""trailing comment"
+_ -x say argsubst (args) 
+TCexpected = ""
+MySt = Foundline
+' log success or failure of various regex comparisons
+TCcheckSubResult "Intentional fail:", MySt, "^<anything323464543>"     ' fail
+TCcheckSubResult "Initial whitespace intact?", MySt, "^""\t \t "       ' initial whitespace intact?
+TCcheckSubResult "Regular text:", MySt, "^cmd time "
+TCcheckSubResult "Quoted string, including curly braces:", MySt, "^""""n{o}w"""""
+
+' =================================================================================================
+
+
