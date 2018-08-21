@@ -70,8 +70,8 @@ HideSlavePrompt = True
 . TestCase 0.00 Intro Messages
 ' =================================================================================================
 say "Running Test number " & TCnum
-_.say Running Test: {TCnum} (YEEAAASS, name substitution is working NOW !!!)
-_.say Echoing 3*4 here: {3*4} (YEEAAASS, if you see 12, expr substitution is working too !!!)
+_. say Running Test: {TCnum} (YEEAAASS, name substitution is working NOW !!!)
+_. say Echoing 3*4 here: {3*4} (YEEAAASS, if you see 12, expr substitution is working too !!!)
 
 ' =================================================================================================
 . TestCase 0.01 Simple case of "command -abc arg1 arg2"
@@ -99,7 +99,7 @@ a=2
 . say a is {a}
 <:
   If a > 1 then
-      .say a is {a} which is > 1
+      . say a is {a} which is > 1
   ElseIf a = 1 then
       say "a is = 1"
   Else
@@ -110,7 +110,7 @@ a=2
 b=2
 . say b is {b}
   If b > 1 then
-      .say b is {b} which is > 1
+      . say b is {b} which is > 1
   ElseIf b = 1 then
       say "b is = 1"
   Else

@@ -1,0 +1,6 @@
+
+IncludeName = "lookfor_ini.vbsx"
+IncludeVersion = "0.07-01"
+NameString = IncludeName & " V" & IncludeVersion
+
+. say Including: $inc1NameString

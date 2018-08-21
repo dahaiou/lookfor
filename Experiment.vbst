@@ -1,0 +1,770 @@
+
+' ====+====1====+====2====+====3====+====4====+====5====+====6====+====7====+====8====+====9====+====0
+'_h1 Command and argument substitution: cmdsubst, argsubst - Different variants
+' ====+====1====+====2====+====3====+====4====+====5====+====6====+====7====+====8====+====9====+====0
+
+' ====+====1====+====2====+====3====+====4====+====5====+====6====+====7====+====8====+====9====+====0	
+{ Function ssubst (s)
+	'Substitute variables in a string. Example, the string:
+	'	"It is now $time and $linecount lines have been read so far"
+	' Is turned into:
+	'	"It is now " & time & " and " & linecount & " lines have been read so far"
+	Dim argstr, remain
+	argstr = ""
+	remain = ""
+
+	'Gosh.ExpandEnvironmentStrings("%PATH%")
+	oRxDlrSubst.Global = True
+	ssubst = oRxDlrSubst.Replace(s, """ & $1$2 & """)
+	oRxShSubst.Global = True
+	ssubst = oRxShSubst.Replace(ssubst, """ & Gosh.ExpandEnvironmentStrings(""%$1$2%"")  & """)
+	'First case: s did not have initial quote but ssubst does.
+	'	This means s began with a $substitution and we must supply another initial quote for things to work
+	if Not Left(rxLtrim(s),1) = """" And Left(rxLtrim(ssubst),1) = """" Then ssubst = """" & ssubst
+	'Second case: s ended with a $substitution and we must supply an extra quote at the end
+	if Not Right(rxRtrim(s),1) = """" And Right(rxLtrim(ssubst),1) = """" Then ssubst = ssubst & """"
+
+	'Third case: Supply initial quote if not present.
+	if Not Left(rxLtrim(ssubst),1) = """" Then ssubst = """" & ssubst
+	'Fourth case: Supply final quote if not present
+	if Not Right(rxRtrim(ssubst),1) = """" Then ssubst = ssubst & """"
+End Function ' Function ssubst (s)
+' ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----O
+}
+
+
+
+' ====+====1====+====2====+====3====+====4====+====5====+====6====+====7====+====8====+====9====+====0
+{ Function argsubst0b (argline)       ' Non-RegExp-based: Attempted optimization of old replace_args 
+    ' ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----O
+	' Function replace_args (argline)
+	' Preprocess args from a command line of format "<command> <rest of line>":
+	' 	...
+	'Declare variables to make sure they are local
+	'Note EXCEPT GtempVar that is assigned by ExecuteGlobal and NEEDS to be global
+	Dim f_name, f_error, remaining, result, pq, ps, s, cmline
+	
+	argsubst0b = argline			' Inputline is returned as is in case of error exit
+	f_name = "replace_args"
+	f_error = "Error(" & f_name & "): "
+	' say "replace_args called, argline="&argline		' *** DEBUG
+	
+	' argline  = trim(argline)
+	if len(Trim(argline)) = 0 then Exit Function		' Empty line is OK, we just quit silently
+	
+	'remaining = rxLTrim(argline)
+	remaining = argline
+	result = ""
+
+	do while len  (remaining) > 0
+		pq = InStr(remaining,"""")  ' position of first quote character
+		ps = InStr(remaining,"{")  ' position of first "{" denoting substitution 
+	
+		if (ps > 0 and (pq = 0 or pq > ps)) then		' substitution found first
+			result = result & left (remaining, ps - 1)
+			remaining = mid (remaining, ps+1)
+			ps = InStr(remaining,"}")
+			if ps = 0 then
+				sayerr f_error & "Missing right curly brace ""}"" in cmdline: " & cmdline
+				Exit Function
+			end if 
+			s = left (remaining, ps - 1)
+			remaining = mid (remaining, ps + 1)
+			' say "remaining=/"&remaining&"/"											' *** DEBUG
+	
+			On Error Resume Next
+			Err.Clear
+			'say "ExecuteGlobal (""GtempVar=""&trim("&s&"))"		' *** DEBUG
+			'ExecuteGlobal "GtempVar="&trim(s)
+			ExecuteGlobal "GtempVar="""" & "&trim(s)
+			' GtempVar = Eval(s)
+			If Err.Number <> 0 Then
+				sayerr f_error & "Unable to substitute variable: """ & trim(s) & """"
+				sayerr Trim(Err.Description & " (0x" & Hex(Err.Number) & ")")
+				GtempVar=""
+				If strictErrExit Then		' strictErrExit means one error causes the whole line to be left unparsed
+					Exit Function
+				Else 
+					' GtempVar="{" & s & "}" 	' putting the erroneous string back in was an experiment, but not a good idea.
+					' This way {<anything unvalid>} is just removed, including the curlies
+				End If
+			End If
+			On Error Goto 0
+
+			result = result & GtempVar
+		elseif (pq > 0 and (ps = 0 or ps > pq)) then  ' quote found first
+			result = result & left (remaining, pq) & """"
+			remaining = mid (remaining, pq + 1)
+			pq = InStr(remaining,"""")
+			if pq = 0 then
+				s = remaining & """"""		' missing end quote is ok, we just supply it
+				remaining = ""
+			else
+				s = left(remaining, pq) & """"
+				remaining = mid (remaining, pq + 1)
+			end if
+			result = result & s
+		else
+			result = result & remaining
+			remaining = ""
+		end if	
+		' say "remaining=/"&remaining&"/"		' *** DEBUG
+	
+	loop
+	'say "cmd="&cmd		' *** DEBUG
+	'say "result="&result		' *** DEBUG
+	cmline = result
+
+	' say "Resulting command line=/"&cmline&"/"		' *** DEBUG
+
+	argsubst0b = result
+
+    ' ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----O
+End Function ' Function argsubst0b (argline)
+}
+
+' ====+====1====+====2====+====3====+====4====+====5====+====6====+====7====+====8====+====9====+====0
+{ Function argsubst4(ByRef s)       ' Non-RegExp-based substitution - "Optimized" from argsubst3 
+    ' ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----O
+    argsubst4 = """" & s & """"
+
+    saydbgq "@argsubst4 Break 00, s="&s
+
+    If s="" Then Exit Function		' Empty string: Quit and Return ASAP
+
+    Dim pos
+    pos = Len (oRxWspace.Replace(s, "$1")) + 1
+    If pos > len(s) Then Exit Function				' Pure Whitespace string: Quit and Return ASAP
+    If Mid(s,pos,1) = "'" Then Exit Function		' Pure Comment string: Quit and Return ASAP - TODO: double double-quotes in comment string
+
+    Dim result, LStr, remain, lenS
+    Dim pp, curC
+
+    LStr = ""									' LStr = Left String = The part already processed, going from left to right
+    lenS = len (s)
+    If pos > 1 Then LStr = Left (s, pos-1)
+    remain = Mid (s, len(LStr) + 1 )
+
+    ' ----+----1--  argsubst4    --3----+----4----+----5--  argsubst4    --7----+----8--  argsubst4    --O
+    i=0		' #### DEBUG
+    Do While pos <= lenS
+
+        curCp = 9999
+        curC = ""
+
+        saydbgq "@argsubst4 LStr=" & LStr
+        saydbgq "@argsubst4 remain=" & Mid (s, pos)
+
+        ' ----+----1--  argsubst4    --3----+----4----+----5--  argsubst4    --7----+----8--  argsubst4    --O
+        pp = InStr(pos,s,"'")		' pos of next comment marker "'"
+        If pp > 0 And pp < curCp Then
+            curCp = pp
+            curC = "'"
+            saydbg  "@argsubst4 Found " & curC & " at pos " & pp
+            saydbgq "@argsubst4 Lremain=" & Mid (s, pos, pp - pos)
+        End If
+
+        pp = Instr(pos,s,"""")		' pos of next quote marker (double-quote)
+        If pp > 0 And pp < curCp Then
+            curCp = pp
+            curC = """"
+        End If
+
+        pp = Instr(pos,s,"$")		' pos of next dollar sign "$"
+        If pp > 0 And pp < curCp Then
+            curCp = pp
+            curC = "$"
+        End If
+
+        pp = Instr(pos,s,"%")		' pos of next percent sign "%"
+        If pp > 0 And pp < curCp Then
+            curCp = pp
+            curC = "%"
+        End If
+
+        pp = Instr(pos,s,"{")		' pos of next left-curly "{"
+        If pp > 0 And pp < curCp Then
+            curCp = pp
+            curC = "{"
+        End If
+
+        pp = Instr(pos,s,"\")		' pos of next escape-indicator "\"
+        If pp > 0 And pp < curCp Then
+            curCp = pp
+            curC = "\"
+        End If
+
+        pp = Instr(pos,s,"^")		' pos of next escape-cancellation indicator "^"
+        If pp > 0 And pp < curCp Then
+            curCp = pp
+            curC = "^"
+        End If
+
+        pp = curCp
+
+        ' ----+----1--  argsubst4    --3----+----4----+----5--  argsubst4    --7----+----8--  argsubst4    --O
+        saydbg 	"@argsubst4 WINNING Find THIS time around was: " & curC & " at pos " & curCp
+        saydbg 	"@argsubst4 pos = " & pos & ", pp = " & pp
+        saydbgq "@argsubst4 LStr=" & LStr
+        saydbgq "@argsubst4 remain=" & Mid(s, pp - pos)
+
+        ' NOW: The next separator character has been located ( one of: '"$%{\^] ) at pos pp
+        ' pp = position (in string remain), curC = the character. Next Up: Handle each of these in turn:
+
+        If curC = "" Then			' Handle plain text case ie. no special escape characters found
+            LStr = LStr & Mid(s, pos) 	' Add to LStr: remaining text
+            pos = lenS + 1
+
+        ElseIf curC = "'" Then			' Handle single-quote ie. comment string until end of string (multi-line not handled)
+            saydbg "@argsubst4 Handling comment marker a pp=" & pp
+            LStr = LStr & Mid(s, pos, pp - pos + 1) 	' Add to LStr: text up to and including the single-quote found
+            remain = Mid (s, pp + 1)
+            LStr = LStr & Replace(remain, """", """""")		' Double all double-quotes found in the trailing comment
+            saydbg "@argsubst4 LStr=" & LStr
+            pos = lenS + 1
+
+        ' ----+----1--  argsubst4    --3----+----4----+----5--  argsubst4    --7----+----8--  argsubst4    --O
+        ElseIf curC = """" Then		' Handle double-quote-enclosed substring
+            LStr = LStr & Mid(s, pos, pp - pos + 1) & """"		' Add to LStr: text up to and including quote found, plus double the quote
+            pos = pp + 1
+            pp = InStr (pos, s, """")
+            If pp = 0 Then
+                LStr = LStr & Mid (s, pos) & """"		' Supply final closing quote if missing
+                pos = lenS + 1
+            Else
+                LStr = LStr & Mid(s, pos, pp - pos + 1) & """"
+                pos = pp + 1
+            End If
+
+        ElseIf curC = "$" Then					'Handle the $varname and ${varname} syntax
+            LStr = LStr & Mid(s, pos, pp - pos )	' Add to LStr: text up to and excluding the special character found
+            pos = pp + 1
+            If Mid (s, pos, 1) = "{" Then			' Find <string> in this syntax: ${<string>} ...
+                saydbgq "@argsubst4 Checking ${varname},  remain=" & Mid(s, pos)
+                pos = pos + 1
+                pp = InStr (pos, s, "}")
+                If pp < 1 Then
+                    ' Error: Right-curly missing
+                End If
+                sReplmt = Mid (s, pos, pp - pos)
+                pos = pp + 1
+
+            Else									' Find <string> in this syntax: $<string><space or tab> ... 
+                saydbgq "@argsubst4 Checking $varname,  remain=" & Mid(s, pos)
+                pp = InStr (pos, s, " ")
+                pt = InStr (pos, s, Chr(9))
+                if pt > 0 And pt < pp Then pp = pt	' pp now points at first instance of either space or tab
+
+                if pp = 0 Then pp = lenS + 1
+                sReplmt = Mid (s, pos, pp - pos)
+                pos = pp
+
+            End If
+            saydbgq "@argsubst4 sReplmt=" & sReplmt
+            If Len (RxTrim(sReplmt)) > 0 Then		' Empty or whitespace replacement string sReplmt is skipped here
+                LStr = LStr & """ & " & sReplmt & " & """
+            End If
+            
+
+        ElseIf curC = "%" Then
+            LStr = LStr & Mid (s, pos, pp - pos)	' Add to LStr: text up to and excluding the special character found
+            LStr = LStr & curC
+            pos = pp + 1
+            'Do stuff
+
+        ElseIf curC = "{" Then
+            LStr = LStr & Mid (s, pos, pp - pos )	' Add to LStr: text up to and excluding the special character found
+            pos = pp + 1
+
+            saydbgq "@argsubst4 Checking {curly-expression},  remain=" & Mid (s, pos)
+
+            ' Some added sophistication for detecting where a curly-brace-enclosed element "really" ends
+            'pp = InStr(pos, s, "}")					' This usually works, but fails for curly-within-quote-within-curly
+            pp = pos + len (getUntilEnd (Mid (s, pos), "}")) - 1		' This one works, even for ... {"str{curly}"} ..., but NO deeper than that
+                                                        ' This also works: ...{say "end token is ""}"""}
+            If pp <= pos Then
+                ' Error: Right-curly missing
+            End If
+
+            sReplmt = Mid (s, pos, pp - pos)
+            saydbgq "@argsubst4 sReplmt=" & sReplmt
+            If Len (RxTrim(sReplmt)) > 0 Then		' Empty or whitespace replacement string sReplmt is skipped here
+
+                ' Now globalexecute the expression found inside the curly braces
+
+                strictErrExit = False
+                On Error Resume Next
+                Err.Clear
+                saydbg "@argsubst4 ExecuteGlobal (""GsubstVar=""&trim("&sReplmt&"))"		' *** DEBUG
+                'ExecuteGlobal "GsubstVar="&trim(leftstr)
+                ' sayq "about to ExecuteGlobal: GsubstVar="""" & "&trim(leftstr)
+                ExecuteGlobal "GsubstVar="""" & "&trim(sReplmt)
+                ' GsubstVar = Eval(leftstr)
+                If Err.Number <> 0 Then
+                    sayerr f_error & "Unable to substitute variable or expression: """ & trim(sReplmt) & """"
+                    sayerr Trim(Err.Description & " (0x" & Hex(Err.Number) & ")")
+                    GsubstVar=""
+                    If strictErrExit Then		' strictErrExit means quit on first error leaving the whole line unparsed
+                        Exit Function
+                    Else 
+                        ' GsubstVar="{" & s & "}" 	' putting the erroneous string back in was an experiment, but not a good idea.
+                        ' This way {<invalid expression>} is just removed, including the curlies
+                    End If
+                End If
+                On Error Goto 0
+                saydbgq "@argsubst4 GsubstVar=" & GsubstVar
+                LStr = LStr & GsubstVar ' Append resulting string (sReplmt still holds the original expression before execution)
+
+            End If
+            pos = pp + 1
+            saydbgq "@argsubst4 After left-curly remain=" & Mid (s, pos)
+
+        ' ----+----1--  argsubst4    --3----+----4----+----5--  argsubst4    --7----+----8--  argsubst4    --O
+        ElseIf curC = "\" Then
+            LStr = LStr & Mid (s, pos, pp - pos)	' Add to LStr: text up to and excluding the special character found
+            LStr = LStr & curC
+            pos = pp + 1
+            'Do stuff
+
+        ElseIf curC = "^" Then
+            LStr = LStr & Mid (s, pos, pp - pos)	' Add to LStr: text up to and excluding the special character found
+            LStr = LStr & curC
+            pos = pp + 1
+            'Do stuff
+
+        Else
+            'Error
+        End If
+
+        i=i+1						' #### DEBUG
+        if i > 12 Then
+            sayerr "ERROR: argsubst3 ABORTING. Loop count reached limit of 12."
+            Exit Do		' #### DEBUG
+        End If
+    Loop ' Do While pos <= lenS
+
+    'sayq "result="&LStr
+    'argsubst4 = """" & LStr & """"
+    argsubst4 = LStr
+End Function ' Function argsubst4(s)
+' ----+----1--  argsubst4    --3----+----4----+----5--  argsubst4    --7----+----8--  argsubst4    --O
+}
+
+' ====+====1====+====2====+====3====+====4====+====5====+====6====+====7====+====8====+====9====+====0
+{ Function argsubst3(ByRef s)       ' Non-RegExp-based substitution 
+    ' ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----O
+    argsubst3 = """" & s & """"
+
+    If s="" Then Exit Function		' Empty string: Quit and Return ASAP
+
+    Dim pos
+    pos = Len (oRxWspace.Replace(s, "$1")) + 1
+    If pos > len(s) Then Exit Function				' Pure Whitespace string: Quit and Return ASAP
+    If Mid(s,pos,1) = "'" Then Exit Function		' Pure Comment string: Quit and Return ASAP
+
+    Dim result, leftstr, remain, Lremain, state, splitCh,lenS
+    Dim pp, curC
+
+    LStr = ""									' LStr = Left String = The part already processed, going from left to right
+    If pos > 1 Then LStr = Left (s, pos-1)
+    remain = Mid (s, len(LStr) + 1 )
+    Lremain = remain							' Lremain = "Left part" of remain, up to and including an already found escape char.
+    state = 0		' 0=normal, 1=doublequote, 2=singlequote, 3=curly, 4=dollar, 5=percent, 
+
+    i=0		' #### DEBUG
+    Do While Not remain = ""
+
+        Lremain = remain							' Lremain = "Left part" of remain, up to and including an already found escape char.
+        curC = ""
+
+        saydbgq "@argsubst3 LStr=" & LStr
+        saydbgq "@argsubst3 remain=" & remain
+
+        pp = InStr(Lremain,"'")		' pos of next comment marker "'"
+        If pp > 0 Then
+            curCp = pp
+            curC = "'"
+            Lremain = Left(Lremain, pp)
+            'saydbg 	"@argsubst3 Found " & curC & " at pos " & pp
+            'saydbgq "@argsubst3 LStr=" & LStr
+            'saydbgq "@argsubst3 Lremain=" & Lremain
+        End If
+
+        pp = Instr(Lremain,"""")		' pos of next quote marker (double-quote)
+        If pp > 0 Then
+            curCp = pp
+            curC = """"
+            Lremain = Left(Lremain, pp)
+        End If
+
+        pp = Instr(Lremain,"$")		' pos of next dollar sign "$"
+        If pp > 0 Then
+            curCp = pp
+            curC = "$"
+            Lremain = Left(Lremain, pp)
+        End If
+
+        pp = Instr(Lremain,"%")		' pos of next percent sign "%"
+        If pp > 0 Then
+            curCp = pp
+            curC = "%"
+            Lremain = Left(Lremain, pp)
+        End If
+
+        pp = Instr(Lremain,"{")		' pos of next left-curly "{"
+        If pp > 0 Then
+            curCp = pp
+            curC = "{"
+            Lremain = Left(Lremain, pp)
+        End If
+
+        pp = Instr(Lremain,"\")		' pos of next escape-indicator "\"
+        If pp > 0 Then
+            curCp = pp
+            curC = "\"
+            Lremain = Left(Lremain, pp)
+        End If
+
+        pp = Instr(Lremain,"^")		' pos of next escape-cancellation indicator "^"
+        If pp > 0 Then
+            curCp = pp
+            curC = "^"
+            Lremain = Left(Lremain, pp)
+        End If
+
+        'saydbg 	"@argsubst3 WINNING Find THIS time around was: " & curC & " at pos " & curCp
+        'saydbgq "@argsubst3 LStr=" & LStr
+        'saydbgq "@argsubst3 remain=" & remain
+
+        ' NOW: The next separator character has been located ( one of: '"$%{\^] ) at pos pp
+        ' pp = position (in string remain), curC = the character. Next Up: Handle each of these in turn:
+
+        If curC = "" Then			' Handle plain text case ie. no special escape characters found
+            LStr = LStr & remain 	' Add to LStr: text up to and including the single-quote found
+            remain = ""
+
+        ElseIf curC = "'" Then			' Handle single-quote ie. comment string until end of string (multi-line not handled)
+            LStr = LStr & Lremain 	' Add to LStr: text up to and including the single-quote found
+            remain = Mid (remain, len(Lremain) + 1)
+            LStr = LStr & Replace(remain, """", """""")		' Double all double-quotes found in the trailing comment
+            remain = ""
+
+        ElseIf curC = """" Then		' Handle double-quote-enclosed substring
+            LStr = LStr & Lremain & """"		' Add to LStr: text up to quote found, plus double the quote
+            remain = Mid (remain, len(Lremain) + 1)
+            pp = InStr (remain, """")
+            saydbgq "@argsubst3 Double quote: endpos pp=" & pp & " remain=" & remain
+            If pp = 0 Then
+                LStr = LStr & remain & """"		' Supply final closing quote if missing
+                remain = ""
+            Else
+                LStr = LStr & Left(remain,pp) & """"
+                remain = Mid (remain,pp+1)
+            End If
+
+        ElseIf curC = "$" Then					'Handle the $varname and ${varname} syntax
+            LStr = LStr & Left (Lremain, len (Lremain) - 1 )	' Add to LStr: text up to the special character found
+            remain = Mid (remain, len(Lremain) + 1)
+            If Left (remain, 1) = "{" Then			' Find <string> in this syntax: ${<string>} ...
+                saydbgq "@argsubst3 Checking ${varname},  remain=" & remain
+                remain = Mid (remain, 2)
+                pp = InStr (remain, "}")
+                If pp < 1 Then
+                    ' Error: Right-curly missing
+                End If
+            Else									' Find <string> in this syntax: $<string><space or tab> ... 
+                saydbgq "@argsubst3 Checking $varname,  remain=" & remain
+                pp = InStr (remain, " ")
+                pt = InStr (remain, Chr(9))
+                if pt > 0 And pt < pp Then pp = pt	' pp now points at first instance of either space or tab
+
+                if pp = 0 Then pp = len(remain) +1
+
+            End If
+            sReplmt = Left (remain, pp)
+            saydbgq "@argsubst3 sReplmt=" & sReplmt
+            If Len (RxTrim(sReplmt)) > 0 Then		' Empty or whitespace replacement string sReplmt is handled here
+                LStr = LStr & """ & " & sReplmt & " & """
+            End If
+            remain = Mid (remain, pp+1)
+
+
+        ElseIf curC = "%" Then
+            LStr = LStr & Left (Lremain, len (Lremain) - 1 )	' Add to LStr: text up to the special character found
+            LStr = LStr & curC
+            remain = Mid (remain, len(Lremain) + 1)
+            'Do stuff
+
+        ElseIf curC = "{" Then
+            LStr = LStr & Left (Lremain, len (Lremain) - 1 )	' Add to LStr: text up to the special character found
+            remain = Mid (remain, len(Lremain) + 1)
+
+            saydbgq "@argsubst3 Checking {curly-expression},  remain=" & remain
+
+            ' Some added sophistication for detecting where a curly-brace-enclosed element "really" ends
+            'pp = InStr(remain, "}")					' This usually works, but fails for curly-within-quote-within-curly
+            pp = len (getUntilEnd (remain, "}"))		' This one works, even for ... {"str{curly}"} ..., but NO deeper than that
+                                                        ' This also works: ...{say "end token is ""}"""}
+            If pp < 1 Then
+                ' Error: Right-curly missing
+            End If
+
+            sReplmt = Left (remain, pp - 1)
+            saydbgq "@argsubst3 sReplmt=" & sReplmt
+            If Len (RxTrim(sReplmt)) > 0 Then		' Empty or whitespace replacement string sReplmt is skipped here
+
+                ' Now globalexecute the expression found inside the curly braces
+
+                strictErrExit = False
+                On Error Resume Next
+                Err.Clear
+                saydbg "@argsubst3 ExecuteGlobal (""GsubstVar=""&trim("&sReplmt&"))"		' *** DEBUG
+                'ExecuteGlobal "GsubstVar="&trim(leftstr)
+                ' sayq "about to ExecuteGlobal: GsubstVar="""" & "&trim(leftstr)
+                ExecuteGlobal "GsubstVar="""" & "&trim(sReplmt)
+                ' GsubstVar = Eval(leftstr)
+                If Err.Number <> 0 Then
+                    sayerr f_error & "Unable to substitute variable or expression: """ & trim(sReplmt) & """"
+                    sayerr Trim(Err.Description & " (0x" & Hex(Err.Number) & ")")
+                    GsubstVar=""
+                    If strictErrExit Then		' strictErrExit means quit on first error leaving the whole line unparsed
+                        Exit Function
+                    Else 
+                        ' GsubstVar="{" & s & "}" 	' putting the erroneous string back in was an experiment, but not a good idea.
+                        ' This way {<invalid expression>} is just removed, including the curlies
+                    End If
+                End If
+                On Error Goto 0
+                saydbgq "@argsubst3 GsubstVar=" & GsubstVar
+                LStr = LStr & GsubstVar ' Append resulting string (sReplmt still holds the original expression before execution)
+
+            End If
+            remain = Mid (remain, pp+1)
+            saydbgq "@argsubst3 After curly-expression, remain=" & remain
+
+        ElseIf curC = "\" Then
+            LStr = LStr & Left (Lremain, len (Lremain) - 1 )	' Add to LStr: text up to the special character found
+            LStr = LStr & curC
+            remain = Mid (remain, len(Lremain) + 1)
+            'Do stuff
+
+        ElseIf curC = "^" Then
+            LStr = LStr & Left (Lremain, len (Lremain) - 1 )	' Add to LStr: text up to the special character found
+            LStr = LStr & curC
+            remain = Mid (remain, len(Lremain) + 1)
+            'Do stuff
+
+        Else
+            'Error
+        End If
+
+        i=i+1						' #### DEBUG
+        if i > 12 Then
+            sayerr "ERROR: argsubst3 ABORTING. Loop count reached limit of 12."
+            Exit Do		' #### DEBUG
+        End If
+    Loop ' Do While Not remain = ""
+    'sayq "result="&LStr
+    'argsubst3 = """" & LStr & """"
+    argsubst3 = LStr
+End Function ' Function argsubst3(s)
+' ----+----1--  argsubst3    --3----+----4----+----5--  argsubst3    --7----+----8--  argsubst3    --O
+}
+
+' ====+====1====+====2====+====3====+====4====+====5====+====6====+====7====+====8====+====9====+====0	
+{ Function argsubst2(ByRef s)       ' RegExp-based substitution (not sure what it did different from argsubst)
+	Dim result, leftstr, remain, state
+	result = "" 
+	leftstr = ""
+	remain = s
+	state = 0		' 0=normal, 1=doublequote, 2=singlequote, 3=curly, 4=dollar, 5=percent, 
+
+	i=0
+	Do While Not remain = ""
+		leftstr = oRxSplitmark.Replace(remain, "$1")
+		remain  = oRxSplitmark.Replace(remain, "$2")
+		
+		splitmark=Left(remain, 1)
+
+		' pass the "normal text" in leftstr to the "left side" ie. append it to result
+		' NOTE: In some special cases the last character is removed in the logic below
+		result = result & leftstr		
+										
+		If splitmark = """" Then	' Handle double-quote substring
+			result = result & """"""	' "double" the double-quote and append to result
+			'saydbgq  "@argsubst at start of quote, result="&result
+			remain = Mid(remain, 2)		' remove splitmark from remaining string
+			' Find closing double-quote
+			leftstr = oRxSplitDquote.Replace(remain, "$1")		'Get text up to the next quote, or end of string if no quote found
+			remain = oRxSplitDquote.Replace(remain, "$2")		'Get remaining text, after next quote, if quote and any text found
+			result = result & leftstr & """"""		' Append quoted string closed with doubled close-quote
+			'saydbgq  "@argsubst at end of quote, result="&result
+			'remain = Mid(remain, 2)		' remove close-quote from remaining string
+	
+		ElseIf splitmark = "'" Then	'Handle single-quote ie. comment string until eol
+			remain = ""			' Empty remain will cause immediate exit from loop
+								' NOTE: multi-line input not handled here. If so we need to delete only to eol and continue
+
+		ElseIf splitmark = "{" Then	'Handle curly-brace expression {expr}
+
+			'Subst1   = oRxCurlySubst.Replace(remain, "$1")
+			'Subst2   = oRxCurlySubst.Replace(remain, "$2")
+			'Subst3   = oRxCurlySubst.Replace(remain, "$3")
+
+			If oRxCurlyMissing.Test(remain)  Then
+				sayerr "Error: Closing curly-brace missing in line ..."
+				leftstr = ""
+				remain = Mid(remain, 2)		' remove opening curly-brace from remaining string
+				sayerrq "remain="&remain
+				
+			ElseIf oRxCurlyEmpty.Test(remain)  Then
+				leftstr = ""
+				remain  = oRxCurlyEmpty.Replace (remain, "$2")
+				saydbg  "@argsubst Whitespace or empty string within curly-braces"
+				saydbgq  "@argsubst remain="&remain
+
+			ElseIf oRxCurlyNormal.Test(remain)  Then
+				leftstr = oRxCurlyNormal.Replace (remain, "$1")
+				remain  = oRxCurlyNormal.Replace (remain, "$2")
+
+				' TODO: Test with: a. curly not closed b. curly at end of line c. curly empty {}
+				saydbg  "@argsubst ==== about to ExecuteGlobal:"
+				saydbgq "@argsubst leftstr="&leftstr
+				saydbgq "@argsubst remain="&remain
+
+				' Now globalexecute the expression found inside the curly braces
+
+				strictErrExit = False
+				On Error Resume Next
+				Err.Clear
+				'say "ExecuteGlobal (""GsubstVar=""&trim("&leftstr&"))"		' *** DEBUG
+				'ExecuteGlobal "GsubstVar="&trim(leftstr)
+				' sayq "about to ExecuteGlobal: GsubstVar="""" & "&trim(leftstr)
+				ExecuteGlobal "GsubstVar="""" & "&trim(leftstr)
+				' GsubstVar = Eval(leftstr)
+				If Err.Number <> 0 Then
+					sayerr f_error & "Unable to substitute variable or expression: """ & trim(leftstr) & """"
+					sayerr Trim(Err.Description & " (0x" & Hex(Err.Number) & ")")
+					GsubstVar=""
+					If strictErrExit Then		' strictErrExit means quit on first error leaving the whole line unparsed
+						Exit Function
+					Else 
+						' GsubstVar="{" & s & "}" 	' putting the erroneous string back in was an experiment, but not a good idea.
+						' This way {<invalid expression>} is just removed, including the curlies
+					End If
+				End If
+				On Error Goto 0
+				result = result & GsubstVar ' Append resulting string (leftstr still holds the original expression before execution)
+
+			Else
+				sayerr "Error (argsubst): Internal logic failed. Case not covered by existing Regexp strings:"
+				sayerrq "Remaining string: remain="&remain
+
+			End If
+
+		End If
+
+		'remain = Mid(remain, 2)
+		i=i+1						' #### DEBUG
+		if i > 128 Then Exit Do		' #### DEBUG
+	Loop
+	
+	'result = """" & result & """"
+	'sayq "result="&result
+	argsubst2 = result
+End Function ' Function argsubst2(s)
+' ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----O
+}
+
+
+' ====+====1====+====2====+====3====+====4====+====5====+====6====+====7====+====8====+====9====+====0
+'{ Function NEXT FUNCTION
+' ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----O
+
+' ====+====1====+====2====+====3====+====4====+====5====+====6====+====7====+====8====+====9====+====0
+'_h1 Test Cases
+' ====+====1====+====2====+====3====+====4====+====5====+====6====+====7====+====8====+====9====+====0
+' The snippets below are really TestCases rather than experiments
+{   ' Different ways to "say" time (at parse-time or invocation time): saytime1,2,3,4
+    ' Prints the time at parse-time, ie. time when this code was read in
+    Sub saytime1()
+    . say Current time1: {Time}
+    End Sub
+
+    ' Prints the literal string "Current time1: {Time}" without substitution of {Time}
+    Sub saytime2()
+    say "Current time1: {Time}"
+    End Sub
+
+    ' Prints the current time when executed, 
+    Sub saytime3()
+    say "Current time1: " & Time
+    End Sub
+
+    ' Prints the current time when ??? 
+    Sub saytime4()
+        a=ssubst ("Current time1: $Time")
+        say a
+    End Sub
+
+}
+
+{
+ '! : Checking Global_sPipeClass_defined
+ If Global_sPipeClass_defined Then
+	sayerr "Warning: Class cannot be redefined. Skipping sPipeClass."
+	GlobalDiscardNextBlock = True
+	' wscript.sleep(500)
+ End If
+}   
+ 
+'*wscript.sleep(100)
+'*say "Just slept 100"
+'If GlobalDiscardNextBlock Then say "GlobalDiscardNextBlock is True"
+
+' Note, without the following line GlobalDiscardNextBlock does not work the first time through here
+' 		Starting from the second time it works OK without
+'If GlobalDiscardNextBlock Then dummy = 0
+
+'If Global_sPipeClass_defined Then GlobalDiscardNextBlock = True
+{   'sPipeClass
+ ' '!: Silly String Pipe functions - NB: Initial '!: Generates "Direct" .vbst parse-time comment output
+ '# If Global_sPipeClass_defined Then GlobalDiscardThisBlock = True
+  Global_sPipeClass_defined = True
+
+  '#.say ##############  (Experimental) HASHmark Subsitution ################
+ ' '!: Just about to declare sPipeClass - NB: Initial '!: Generates "Direct" .vbst parse-time comment output
+ ' ====+====1====+====2====+====3====+====4====+====5====+====6====+====7====+====8====+====9====+====0
+ class sPipeClass
+	Dim Subscribers()
+	Dim SubsCount, sBuf
+
+	Sub Write(s)
+		' Do stuff
+ 	End Sub
+
+	Sub Writeline(s)
+		' Do stuff
+	End Sub
+	
+	Function GetBuf()
+		' Do stuff
+	End Function
+ 	
+ End Class
+
+}
+
+{sayerr "#### TestMessage: INSIDE Curlies ..."
+sayerr "#### TestMessage: Happy days with close token }" }
+
+sayerr "#### TestMessage: Will this show ???"
+
+sayerr "#### TestMessage: Still running after sPipeClass"
+
+{
+
+' ====+====1====+====2====+====3====+====4====+====5====+====6====+====7====+====8====+====9====+====0
+'_h1 NEXT Section
+' ====+====1====+====2====+====3====+====4====+====5====+====6====+====7====+====8====+====9====+====0
+' The snippets below ...

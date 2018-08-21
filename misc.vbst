@@ -117,7 +117,7 @@ End Sub
  	Set sh = CreateObject("WScript.Shell")
 
 	For Each d In Split(sh.ExpandEnvironmentStrings("%PATH%"), ";")
-		Wscript.StdOut.WriteLine d
+		If s = "" or Instr (1, d, s, 1) > 0 Then Wscript.StdOut.WriteLine d
 		' TODO: 
 		'		- Filter based on search string
 		'		- Check if dir exists and mark with asterisk * or something 
@@ -144,22 +144,74 @@ End Sub
 End Sub ' Sub benchMark (r, ByRef code)
 }
 
-'.say ==== Break 01
+'. say ==== Break 01
 
 { Sub benchIt (r, ByRef code)
-	.say Started: $time
+	. say Started: $time
 	STime = timer
 	For myindix = 1 to r
 		ExecuteGlobal (code)
 	Next
-	.say Finished: $time
-	.say Duration: ${timer - STime}
+	. say Finished: $time
+	. say Duration: ${timer - STime}
 	
 End Sub ' Sub benchIt (r, ByRef code)
 }
 
 
-'.say ==== Break 02
+
+'_h2 Sub ListProcessRunning()
+' ====================================================================================================
+_
+
+'_h2 Test RegEx
+' ====================================================================================================
+_ 
+ { Set trx = Getref ("test_rx")
+ sub test_rx(sPat, s)
+ 	set oRx=Nothing
+ 	set oMatch=Nothing
+ 
+ 	Set oRx = New RegExp
+ 	oRx.global = true
+ 	oRx.ignorecase = false
+ 
+ 	oRx.pattern = sPat
+ 	Set oMatch = oRx.Execute(s)
+ 
+ 	sayomatch(oMatch)
+ 		
+ end sub
+ }
+ 
+{ Sub checkRx(Rx, s)
+ say "Regex info:"
+ If Rx.Test(s) Then
+	 say "Match Successful"
+ Else
+	 say "Match Failed"
+ End If
+ say "Positionals: " & Rx.Replace(s, "/$1/$2/$3/$4/$5/$6/$7/$9/$10")
+End Sub
+}
+
+
+
+{ Sub sayomatch (Match)
+ 	say "  Match.Count=" & Match.Count
+ 	If Match.Count <= 0 Then Exit Sub
+ 
+ 	For i = 0 to oMatch.Count -1
+ 		say "    Match("&i&").submatches.Count=" & Match(i).submatches.Count
+ 		For j = 0 to Match(i).submatches.Count - 1
+ 			say "      oMatch("&i&").submatches("&j&")=" & oMatch(i).submatches(j)
+ 		Next
+ 	Next
+ End Sub
+ } 
+
+
+'. say ==== Break 02
 
 
 ' Set global variable, to test below, whether global or local is printed
@@ -179,19 +231,19 @@ Sub funny (s)
 	say "Responsible="&Responsible
 
 	say VBCrLf&"dot-dollar say:"
-	.say Responsible='$Responsible'
+	. say Responsible='$Responsible'
 
 	say VBCrLf&"preprocessed pSayLvarQ:"
-	#psaylvarq Responsible
+	%psaylvarq Responsible
 
 	say VBCrLf&"preprocessed pSayLvarcmQ:"
-	#psaylvarcmq Responsible
+	%psaylvarcmq Responsible
 
 	say VBCrLf&"preprocessed pSayLvar2cmQ:"
-	#psaylvar2cmq Responsible
+	%psaylvar2cmq Responsible
 
 	say VBCrLf&"preprocessed pSayLvar3cmQ:"
-	#psaylvar3cmq Responsible
+	%psaylvar3cmq Responsible
 
 	say VBCrLf&"with sayvarq:"
 	sayvarq "Responsible"
@@ -226,5 +278,8 @@ Sub funny (s)
 End Sub
 }
 
-
+{ Sub tstssend ()
+	optstr= "diIsSoOlLwWF:f:g:B:b:c:"
+End Sub
+}
 

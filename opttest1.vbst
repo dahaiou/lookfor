@@ -70,14 +70,14 @@ HideSlavePrompt = True
 . TCNew 0.00 Intro Messages
 ' =================================================================================================
 say "Running Test number " & TCnum
-_.say Running Test: {TCnum} (YEEAAASS, name substitution is working NOW !!!)
-_.say Echoing 3*4 here: {3*4} (YEEAAASS, if you see 12, expr substitution is working too !!!)
+_. say Running Test: {TCnum} (YEEAAASS, name substitution is working NOW !!!)
+_. say Echoing 3*4 here: {3*4} (YEEAAASS, if you see 12, expr substitution is working too !!!)
 
 ' =================================================================================================
 . TCNew 0.01 Simple case of "command -abc arg1 arg2"
 ' =================================================================================================
-_ .dbg add getopts ' Debug messages for getopts need to be turned on in slave process
-_ -l .tgopts mycmd -abc a1 a2 a3
+_ . dbg add getopts ' Debug messages for getopts need to be turned on in slave process
+_ -l . tgopts mycmd -abc a1 a2 a3
 ' =================================================================================================
 subtestidx = 0  
 ' subtestnum = testnum & "." & inc(subtestidx)
@@ -92,7 +92,7 @@ TCcheckResult Foundline, TCexpected        ' logs success or failure of regex co
 ' =================================================================================================
 . TCNew 0.02 Empty line to tgopts
 ' =================================================================================================
-_ .dbg add getopts ' Debug messages for getopts need to be turned on in slave process
+_ . dbg add getopts ' Debug messages for getopts need to be turned on in slave process
 _ -l tgopts ""
 ' =================================================================================================
 
@@ -107,7 +107,7 @@ TCcheckResult Foundline, TCexpected        ' logs success or failure of regex co
 ' =================================================================================================
 . TCNew 0.03 Empty line to getopts
 ' =================================================================================================
-_ .dbg add getopts ' Debug messages for getopts need to be turned on in slave process
+_ . dbg add getopts ' Debug messages for getopts need to be turned on in slave process
 _ optstr = "abcde:f:x:z|good-times|parse-slowly:|a-good-opt:|"
 _ opts_found = ""
 _ cmdline = ""
@@ -116,7 +116,7 @@ _ -l getopts optstr, cmdline, opts_found
 ' =================================================================================================
 . TCNew 0.04  Simple case of "command -abc arg1 arg2"
 ' =================================================================================================
-_ .dbg add getopts ' Debug messages for getopts need to be turned on in slave process
+_ . dbg add getopts ' Debug messages for getopts need to be turned on in slave process
 _ optstr = "abcde:f:x:z|good-times|parse-slowly:|a-good-opt:|"
 _ opts_found = ""
 _ cmdline = "mycmd -abc a1 a2 a3"
@@ -126,7 +126,7 @@ _ -l getopts optstr, cmdline, opts_found
 ' =================================================================================================
 . TCNew 0.05  Simple case of "   command -abc arg1 arg2" with extra spaces before command
 ' =================================================================================================
-_ .dbg add getopts ' Debug messages for getopts need to be turned on in slave process
+_ . dbg add getopts ' Debug messages for getopts need to be turned on in slave process
 _ optstr = "abcde:f:x:z|good-times|parse-slowly:|a-good-opt:|"
 _ opts_found = ""
 _ cmdline = "    mycmd    -abc   a1   a2   a3   "

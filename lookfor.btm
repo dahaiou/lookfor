@@ -6,9 +6,13 @@ rem https://kryogenix.org/days/2004/04/01/interactivevbscript/
 
 rem @cscript.exe //NoLogo lookfor.vbs
 
-set batpath=%~dp0
-set batpath=%batpath:~0,-1%
+rem @echo %~dp0
 
-rem echo batpath is: %batpath%
+
+
+set batpath=%~dp0
+
+set batpath=%batpath:~0,-1%
+echo batpath is: %batpath%
 
 @cscript.exe 2>&1 /NoLogo %batpath%\lookfor.vbs %*

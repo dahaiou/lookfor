@@ -20,14 +20,13 @@ If vartype (oRx) = 0 Then	' Only init first time: Conserving variable values if 
 	Set oMatch = oRx.Execute("Dummy text")
 End If
 
+' Escape-mark punctuation, complete oRxEscMark, reduced: oRxEscMark2
+Dim oRxEscMark	: Set oRxEscMark	= NewRegExp("^([^\S\n]*)([',.;:_\\\|\@\#\~!$%&=?\+\-\*\/])([\s\S]*)$", True, True)	' Complete set
+Dim oRxEscMark2	: Set oRxEscMark2	= NewRegExp("^([^\S\n]*)([',.;:_\#%])([\s\S]*)$", True, True)						' Reduced set
 
 ' ====+====1====+====2====+====3====+====4====+====5====+====6====+====7====+====8====+====9====+====0
- 
-' ====+====1====+====2====+====3====+====4====+====5====+====6====+====7====+====8====+====9====+====0
-		
-
 ' Routines
-' =================================================================================================
+' ====+====1====+====2====+====3====+====4====+====5====+====6====+====7====+====8====+====9====+====0
 
 '! Prepare a new regular expression.
 '! By Ansgar Wiechers, See Copyrights Ref.1
@@ -78,34 +77,63 @@ End Function
 ' ====+====1====+====2====+====3====+====4====+====5====+====6====+====7====+====8====+====9====+====0
 Sub ssend (ByRef cmdline)
 	'! Usage: ssend -E -l <line>
-	'!@param -E - Echo off (on is default) Do not echo return text from slave app (but read into FoundLine)
+	'!@param -E - Echo off (on is default) Do not echo return text from slave app (only read into FoundLine)
+	'!@param -v - Verbose on (off is default) Echo <line> just before sending it
 	'!@param -l - Logging on (off is default) Echo <line> just before sending it
-	Dim opts_found		' Make sure opts_found is local
-	Dim opt_echo
-	opts_found = ""
-	saydbg "@ssend calling getopts with :El " & cmdline
-	getopts ":El", cmdline, opts_found
+	' Ouch: There are a surprising number of options at play here:
+	' 1. Echo or "report" the line which is about to be sent, before actually sending it
+	'		1a. To console stdout: yes or no
+	'		1b. To TClogfile if open: yes or no
+	'			1b1. Warn if TClogfile not open: yes or no
+	' 2. Write the line(s) read back from slave's stdout
+	'		2a. To console stdout: yes or no
+	'			2a1. Prepending slavemark character: yes or no
+	'		2b. To TClogfile if open: yes or no
+	'			2b1. Warn if TClogfile not open: yes or no
+	'			2b2. Prepending slavemark character: yes or no
+	' HARD to find the right terminology for these different alternatives
+	'	1. Echo, Report, Chatty, Send-Echo, Echo-Send, Echo-Presend, EchoBeforeSend, EBefS
+	'	2. Back-Echo, Slave-Echo, EchoSlaveOutput, Back-Echo, Slave-Echo
+	'	
+	'			Function:					Environment Variable			options	  Defaults
+	'		1a. EchoSlaveInput, 			EnvVariable:	ESlvIn			-i, -I	: True, False (default)
+	'		1b. TClogBeforeSend. 		 	EnvVariable:	LSlvIn			-s, -S *: True, False (default)
+	'		2a. EchoSlaveOutput				EnvVariable:	ESlvOut			-o, -O	: True (default), False
+	'			">" or "" or other			EnvVariable:	ESlvMark 				: ">" is default
+	'		2b. TClogSlaveOutput, 			EnvVariable:	LSlvOut			-l, -L *: True (default), False
+	'			">" or "" or other			EnvVariable:	LSlvMark 				: ">" is default
+	'		2c. Warninf if TClogFile not open EnvVariable:	TClogWarning	-w, -W *: True, False (default)
+	'			Note: Explicitly given -s or -l imply -w, and then explicit -W is required to disable warnings
+	' Other options: -d - apply current options as global defaults (can be given without a cmdline proper)
+	' Error exit if contradictory options entered
+	' Note also: possibility to go into "direct-slave mode", ie.
+	' all input and output goes directly to slave and back, plus an
+	' escape command to bring us back to normal
 
-	opt_echo = true
-	if find_opt("E", opts_found) then opt_echo = false
+	Dim opts, opt_echo, opt_log
+	opts = ""
+	saydbgq "@ssend calling getopts with :El, cmdline=" & cmdline
+	getopts ":El", cmdline, opts
+	saydbgq "@ssend after calling getopts, opts=" & opts
+
+	opt_echo	=  True: If find_opt("E", opts) then opt_echo	= False
+	opt_log		= False: If find_opt("l", opts) then opt_log	= True
 	
 	if SlaveExec Is Nothing then
 		sayerr "Error: No slave app to send to."
 		Exit Sub
 	End If
-	saydbg "@ssend calling find_opt ( l, " & opts_found
-	if find_opt("l", opts_found) Then TClog "(ssend) Sending: " & cmdline
+	if opt_log Then TClog "(ssend) Sending: " & cmdline
 	
 	saydbg "@ssend Sending: " & cmdline
 	SlaveExec.StdIn.WriteLine(cmdline)
 	FoundLine = SlveReadUpto (SlavePrompt)
 	if opt_echo And len(FoundLine) > 0 Then
-		'say SlaveOutFlag & FoundLine
-		'say "with regex:"
 		oRx.global = true
 		' oRx.ignorecase = false		' not needed
 		oRx.pattern = VBCrLf&"|\n"
-		TClog SlaveOutFlag & oRx.Replace (FoundLine, VBCrLf & SlaveOutFlag)
+			TClog SlaveOutFlag & oRx.Replace (FoundLine, VBCrLf & SlaveOutFlag)
+'			say SlaveOutFlag & oRx.Replace (FoundLine, VBCrLf & SlaveOutFlag)
 	End If
 
 End Sub ' ssend(cmdline)
@@ -235,12 +263,31 @@ _
 	End If
  End Sub ' Sub dbg (dbg_cmd)
 
- Sub saydbgq (s)
- 	saydbg ("-q " & s)
- End Sub
+Dim oRxDbgTopic	: Set oRxDbgTopic = NewRegExp("^[^\S\n]*\@?(\.?\S*)[^\S\n]?([\s\S]*)$", True, False)
 
+Function dbg_ontopic (ByRef s)
+ 	Dim tok
+	dbg_ontopic = ""		' By default
 
- Sub saydbg (s)
+	If sDBcheck (DBG_enabled, "all") Then		' "all" globally enabled means we are always on-topic
+		dbg_ontopic = "all"
+	Else
+		tok = oRxDbgTopic.Replace (s, "$1")
+		For Each t in Split(tok, "|")
+			If sDBcheck (DBG_enabled, t) Then
+				If dbg_ontopic <> "" Then dbg_ontopic = dbg_ontopic + ","
+				dbg_ontopic = dbg_ontopic + t
+			End If
+		Next
+	End If
+
+End Function
+
+Sub saydbgq (ByRef s)
+	saydbg ("-q " & s)
+End Sub
+
+ Sub saydbg (ByRef s)
 	' TODO: Selective debug messages: enabled/disabled by topic or function
 	' Global vars:  DBG_enabled = /abc/def/regex/...  these ones are enabled
 	'				DBG_current = /regex/ - current topic, ie, must be found
@@ -262,7 +309,7 @@ _
 
 	DBG_disable  = False
 
-	' Get topic from s, if present, in the form "@topic rest of string"
+	' Get topic from s, if present, in the form "@topic <rest of string>"
 	If InStr (rxLTrim(s),"@") = 1 Then
 		sv    = split(rxLTrim(s), " ", 2)
 		topic = Trim(Replace(sv(0),"@", "", 1, 1))
@@ -283,7 +330,7 @@ _
 		on_topic = False ' By default
 		For Each t in Split(topics, "|")
 			t = Trim (t) ' Probably not necessary but seems right
-			If len(t) > 0 And sDBcheck (DBG_enabled, t) Then
+			If sDBcheck (DBG_enabled, t) Then
 				'WScript.Stderr.WriteLine DBG_banner & "(saydbg): on_topic enabled, key: " & t
 				on_topic = True
 				Exit For
@@ -295,7 +342,8 @@ _
 	
 	If on_topic Then
 		bann = DBG_banner & ": "
-		If len (topic) > 0 Then bann = DBG_banner & "(" & topic & "): "
+		' If len (topic) > 0 Then bann = DBG_banner & "(" & topic & "): "
+		If len (t) > 0 Then bann = DBG_banner & "(" & t & "): "
 		
 		If opt_quoted Then s= "'" & s & "'"
 		
@@ -321,63 +369,21 @@ Sub help ()
 End Sub ' Sub help ()
 
 
-' readToken (ByRef s) - Read and remove first token from a command line
+' readToken (ByRef s) - Get first token from a command line
 ' ====================================================================================================
 Function readToken (ByRef s)
+	Dim arr
 	readToken = ""
-	Dim t
-	t = ""
-	Do While t = ""
-		arr = Split (s, " ", 2)
-		If ubound(arr) > 0 Then
-			t = arr(0)
-			s = arr(1)
-		ElseIf ubound(arr) = 0 Then
-			t = arr(0)
-			s = ""
-		Else
-			s = ""
-			Exit Do
-		End If
-	Loop
-	readToken = t
- End Function ' Function readToken (s)
+	If RxTrim(s) = "" Then Exit Function		' empty s, no tokens there, just quit
 
-'_h2 Sub ListProcessRunning()
-' ====================================================================================================
-_ 
+	arr 		= Split (s, " ", 2)				' split into <first token>, <rest of line>
+	readToken	= ""
+	s 			= ""
+	readToken 	= arr (0)						' arr has at least one element
+	If ubound (arr) > 0 Then s = arr (1)		' If two, put second one in s
 
-'_h2 Test RegEx
-' ====================================================================================================
-_ 
- Set trx = Getref ("test_rx")
- sub test_rx(s,sPat)
- 	set oRx=Nothing
- 	set oMatch=Nothing
- 
- 	Set oRx = New RegExp
- 	oRx.global = true
- 	oRx.ignorecase = false
- 
- 	oRx.pattern = sPat
- 	Set oMatch = oRx.Execute(s)
- 
- 	sayomatch(oMatch)
- 		
- end sub
- 
- Sub sayomatch (Match)
- 	say "  Match.Count=" & Match.Count
- 	If Match.Count <= 0 Then Exit Sub
- 
- 	For i = 0 to oMatch.Count -1
- 		say "    Match("&i&").submatches.Count=" & Match(i).submatches.Count
- 		For j = 0 to Match(i).submatches.Count - 1
- 			say "      oMatch("&i&").submatches("&j&")=" & oMatch(i).submatches(j)
- 		Next
- 	Next
- End Sub
-  
+End Function ' Function readToken (s)
+
 
 
 ' ====================================================================================================
@@ -448,7 +454,9 @@ _
 ' tgopts (cmdline) - Test getopts (use in debugging)
 ' =================================================================================================
 Sub tgopts (cmdline)
-	optstr = "abcde:f:x:z|good-times|parse-slowly:|a-good-opt:|"
+	saydbgq "@tgopts initial optstr=" & optstr
+ 	If optstr = "" Then optstr = "abcde:f:x:z|good-times|parse-slowly:|a-good-opt:|"
+	saydbgq "@tgopts used optstr=" & optstr
 	opts_found = ""
 
 	getopts optstr, cmdline, opts_found
@@ -515,7 +523,47 @@ Function find_opt_val(opt, found_opts)
 	find_opt_val=val
 End Function
 
-'_h2 function split_optarr (s) - After getopt, split options into an array
+'_h2 opt_sgClash(opts, found_opts) - Checks one or more single-letter opts and returns the ones found present
+'	eg. If opt_sgClash("Ffg", found_opts) returns "Fg" then both -F and -g were given (which may be conflicting options)
+' =================================================================================================
+Function opt_sgClash (opts, ByRef found_opts)
+	Dim optchar
+	opt_sgClash = "" ' by default
+
+	For i = 1 To len (opts)
+		optchar = Mid(opts, i, 1)
+		If   InStr(found_opts, "|"&optchar&"|") > 0 _
+		Or   InStr(found_opts, "|"&optchar&"=") > 0 _
+		Then opt_sgClash = opt_sgClash & optchar
+	Next
+End Function
+
+'_h2 opt_sgClashCsv(opts, found_opts) - Calls opt_sgClash for each element in a csv-list and quits on first hit
+'	Where a "hit" means conflicting options found, eg. "Fgh" results in a value beginning with "F" and longer than 1,
+'	A return value of length 0 or 1 is never a "hit"
+'	A return value of any length is only a hit if the first char is same as in the input string (eg. "F" in the example)
+' =================================================================================================
+Function opt_sgClashCsv (opts_csv, ByRef found_opts)
+	Dim opts_arr, opts, optsCh1, sgClash
+	opt_sgClashCsv = "" ' by default
+	opts_arr = Split (opts_csv, ",")
+
+
+	For i = LBound(opts_arr) To UBound(opts_arr)
+		opts = Trim(opts_arr(i))
+		optsCh1 = Mid(opts, 1,1)
+		sgClash = opt_sgClash (opts, found_opts)
+
+		If  Len (sgClash) > 1 _
+		And Mid (sgClash,1,1) = Mid(opts, 1,1) Then 
+			opt_sgClashCsv = sgClash
+			Exit Function
+		End If
+	Next
+End Function
+
+'_h2 function split single-letter_optarr (s) - After getopt, split options into an array
+'	eg. If function spl"Ffg"ingle-letter_ returns "Fg" then both -F and -g were given (which may be conflicting options)
 ' =================================================================================================
 ' TODO: test function split_optarr and see whether it can be useful or not
 '		currently not used
@@ -816,99 +864,13 @@ Sub getopts (optstr, ByRef cmdline, ByRef opts_found)
 
 End Sub ' Sub getopts (optstr, ByRef cmdline, ByRef opts_found)
 
+' getIniOpts - Get _Initial_ options: As getopts, but options must come first.
+' initial (command) token in NOT recognized or handled in any way
+Sub getIniOpts (optstr, ByRef line, ByRef opts_found)
+	opts_found = ""
+	If Left(RxLTrim(line),1) = "-" Then getopts optstr, line, opts_found
+End Sub
 
-' =================================================================================================
-Private Sub RunTest(ByVal filename)
-	' take filename as input
-	'		extension .vbst is added unless given
-	'		other extensions (dot anywhere in filename) are preserved
-	'		filename. overrides: dot is removed and no extension used
-	' log file is filename.log
-	'		TODO: nifty way to specify other extensions eg. .vbstlog
-	'		Initial test stamp logged: Date filename etc. 
-	'		previous logfile is overwritten
-	'		TODO: option to rename previous logfile
-	'		TODO: option to append to logfile instead
-	'		logfile is closed and reopened for append for each new TestCase to minimise loss on deadlock or error
-	'		log output is flushed continuously on every write
-	'		TODO: options for summary/normal/detailed log output
-	'				detailed: 	- Initial presentation blurb for each test case
-	'							- "comment" log commands eg. "setting up for test xyz"
-	'							- all sent setup commands are logged (eg. setting memory)
-	'							- all setup output received back (confirmations activated if present)
-	'							- sent test commands are logged
-	'							- stepwise execution with logging defined at each step
-	'							- "misc" detailed schemes yet to be thought of
-	'							- all test output received back
-	'							- all test results 
-	'							- all output/lookfor comparisons on failure
-	'				normal: 	- Initial presentation blurb for each test case
-	'							- "comment" log commands eg. "setting up for test xyz"
-	'							- NOT all sent setup commands are logged (eg. setting memory)
-	'							- NOT all setup output received back (confirmations activated if present)
-	'							- all sent test commands are logged
-	'							- NOT (probably) stepwise execution with logging defined at each step
-	'							- NOT (probably) "misc" detailed schemes yet to be thought of
-	'							- all test output received back
-	'							- all test results 
-	'							- all output/lookfor comparisons on failure
-	'				summary: 	- NO Initial presentation blurb for each test case
-	'							- Possibly test section logs ie. log starting in on new chapter 
-	'							- NOT all "comment" log commands 
-	'							- NOT all sent setup commands are logged (eg. setting memory)
-	'							- NOT all setup output received back (confirmations activated if present)
-	'							- NOT all sent test commands are logged
-	'							- NOT (probably) stepwise execution with logging defined at each step
-	'							- NOT (probably) "misc" detailed schemes yet to be thought of
-	'							- NOT all test output received back
-	'							- All test results with 
-	'							- NOT all output/lookfor comparisons on failure
-	'				normal:		- 
-	'				
-	'				
-	' console output:
-	'		Complete text seen, same as logfile
-	'		TODO: options for summary/normal/detailed console output
-	' ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----O
-	Const ForReading = 1, ForWriting = 2, ForAppending = 8
-	Dim testFileName, logFileName, testfnamepart, testfbasenamepart, testflogext, testDirPath
-
-	'!@Todo: Testfile in current dir by default (not much sense in searching for it in env:PATH)
-	'!@Todo: Logfile in current dir by default, even if Testfile is not. option to send it to dir of testfile
-	testflogext = "log"
-
-	' Get fullpath of input file and logfile:
-
-	TCfileName = findFileName(Trim(filename))
-	if Trim (TCfileName) = "" Then Exit Sub
-
-	testFNamepart = GoFS.GetFileName (TCfileName)
-	testFBaseNamepart = GoFS.GetBaseName (TCfileName)
-	testDirPath = Left(TCfileName, Len (TCfileName) - Len (testfnamepart))
-	TClogFileName = testDirPath & testFBaseNamepart & "." & testflogext
-
-	saydbg "@runtest TCfileName    : " & TCfileName
-	saydbg "@runtest TClogFileName : " & TClogFileName
-	' ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----O
-	' Open oTClogFile
-	' Todo: if old logfiles present, choose between: overwrite, append, rename
-
-	Set oTClogFile = GoFS.OpenTextFile (TClogFileName, ForWriting, True )
-	'If Err Then Errorhandling...
-
-	TClog "Lookfor Version XX, Running Test File on: " & date & " " & time
-	TClog "TCfileName    : " & TCfileName
-	TClog "TClogFileName : " & TClogFileName
-	'TClog ""
-
-	runTestFile TCfileName
-
-	' ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----O
-	'Cleanup
-	oTClogFile.Close
-	Set oTClogFile = Nothing
-
-End Sub ' Private Sub RunTest(ByVal filename)
 
 
 set argsubst0 = Getref("replace_args")
@@ -1095,12 +1057,18 @@ End Function ' Function preprocess_cmdline (cmdline)
 '! @param  filename   Name of the file to find.
 '!
 Private Function findFileName(ByVal filename)
-	Dim fso, sh, file, code, dir, opts_found, opt_n
+	Dim fso, sh, file, code, dir, opts_found, opt_n, fxtensions
 	' opt -n : accept non-existant filename as if it existed in current dir
 	'			otherwise return empty string
+	' opt -x .ext1.ext2....	: Filename extensions to try if filename lacks one and is not found
+	'
 	opts_found = "" 
-	getopts ":n", filename, opts_found
-	opt_e = find_opt ("n", opts_found)
+	getopts ":nx:", filename, opts_found
+	opt_n = find_opt ("n", opts_found)
+	opt_x = find_opt_val ("x", opts_found)
+	opt_x = Trim(opt_x)
+	if Left(opt_x,1) = "." Then opt_x = Mid (opt_x,2)
+	fxtensions = Split (opt_x, ".")
 
 
 	' Create my own objects, so the function is self-contained and can be called
@@ -1140,7 +1108,7 @@ Private Function findFileName(ByVal filename)
 		filename = fso.GetAbsolutePathName(filename)
 	End If
 
-	If Not opt_e And Not fso.FileExists(filename) Then filename = ""
+	If Not opt_n And Not fso.FileExists(filename) Then filename = ""
 		
 	findFileName = filename
 
@@ -1164,6 +1132,32 @@ end function
 function psaylvar3cmq (lvarname)
 	psaylvar3cmq = Replace(".say vname='$vname'", "vname", lvarname)
 end function
+
+function psaywtype (lvarname)
+	psaywtype = Replace("saywtype ""vname"", vname", "vname", lvarname)
+end function
+
+function b2s (b)
+	b2s = "False" ' by default	
+	If b Then b2s = "True"
+end function
+
+Sub saywtype (ByRef vname, ByRef value)
+	Dim vtype, tname
+	tname = typename (value)
+	If 		tname = "String"  Then
+		say vname & "(" & tname & ") = """ &     value  & """"
+	ElseIf 	tname = "Boolean" Then
+		say vname & "(" & tname & ") = " & b2s(value) & ""
+	ElseIf  tname = "Integer" Then
+		say vname & "(" & tname & ") = " & value
+	ElseIf  vartype (value) = 9  Then
+		say vname & " is an Object of type: " & tname
+	Else
+		say vname & "(" & t & ") = """ & value & """"
+	End If
+End Sub ' Sub saywtype (vname, ByRef value)
+
 
  ' ====+====1====+====2====+====3====+====4====+====5====+====6====+====7====+====8====+====9====+====0
  Private Sub RunTestFile (ByVal filename)
@@ -1270,11 +1264,14 @@ end function
 	'!				making it possible to run also from the command line (good for testing)
 
 	' ----+----1--  RunTestFile  --3----+----4----+----5--  RunTestFile  --7----+----8--  RunTestFile  --O
-	Dim exitOnError, fso, sh, file, code, dir, executeNow, nonExeCount, fLine, TestLine, qpos, ppos, semiFlag
+	Dim exitOnError, fso, sh, file, code, dir, executeNow, nonExeCount
+	Dim fLine, TestLine, qpos, ppos, semiLineNo, firstChar, withBlock, withLineCount
 
 	filename = "  " & filename & "   "
 	getopts ":E", filename, opts_found
-	semiFlag = 0
+	semiLineNo = 0
+	withLevel		= 0			'!@withBlock 	 - > 0 while we are parsing inside (nested) "With ... End With" blocks
+	withLineCount 	= 0			'!@withLineCount - Number of lines parsed in with-block
 
 	exitOnError = False
 	exitOnError = Not find_opt("E", opts_found)
@@ -1282,7 +1279,7 @@ end function
 	' Create my own objects, so the function is self-contained and can be called
 	' before anything else in the script.
 	Set fso = CreateObject("Scripting.FileSystemObject")
-	Set sh = CreateObject("WScript.Shell")
+	Set sh  = CreateObject("WScript.Shell")
 	executeNow	= True
 	nonExeCount = 0
 	fLine	 	= ""
@@ -1322,7 +1319,7 @@ end function
 		End If
 		filename = fso.GetAbsolutePathName(filename)
 	End If
-	'saydbg "@runtestfile Opening file: " & filename
+	saydbg "@runtestfile Opening file: " & filename
 	
 	' ----+----1--  RunTestFile  --3----+----4----+----5--  RunTestFile  --7----+----8--  RunTestFile  --O
 	Set file = fso.OpenTextFile(filename, 1, False)
@@ -1332,17 +1329,51 @@ end function
 	' ----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+
 	Do While Not file.AtEndOfStream 
 		Do ' Dummy Loop to enable "Continue"
-			semiFlag = 0
+			code = ""
+			semiLineNo = 0
 
 			' >>>>>>>>>>>>>>>>>>>>> Read Input: Mode = Plain   >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 			fLine 		= file.ReadLine		' An untrimmed fLine may be needed below in some cases
 			flineno = flineno + 1
 			blockLineCount = 1
 			TestLine 	= rxLTrim(fLine)
+			firstChar = Left(rxLTrim (Testline), 1)
 
 			If rxRTrim (TestLine) =  "" Then Exit Do ' Exit Dummy Loop = "Continue"
-			If Left (TestLine, 1) = "'" Then Exit Do ' Exit Dummy Loop = "Continue"
-			
+			'If Left (TestLine, 1) = "'" Then Exit Do ' Exit Dummy Loop = "Continue"	' DISABLED, to enable specials in inital comments
+
+			' Handle underscore-continued lines first. (So all the special cases below will work on the extended line)	
+			' Note: Variable fline will hold the untrimmed, most recently read line from file.
+			' 		TestLine will hold the combined line, with final underscores, newlines and intervening whitespace removed
+			'!@Todo Todo: Handle underscore-continuations withing multi-line blocks
+			' ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----O
+			Do While Right(RxRTrim(TestLine), 2) = " _" Or Right(RxRTrim(TestLine), 3) = VBCrLf & "_"  Or RxTrim(TestLine) = "_"
+				TestLine = RxRTrim (TestLine)
+				TestLine = RxRTrim(Left(TestLine, Len(TestLine)-1))
+				fLine = file.ReadLine
+				TestLine = RxLTrim (TestLine & " " & RxTrim(fline))
+				flineno = flineno + 1
+				saydbg "@runtestfile-uscore Underscore-continue to line no: " & flineno & " TestLine:'" & TestLine &"'"
+				If file.AtEndOfStream Then Exit Do
+			Loop
+
+			' "Percent-sign" lines: Function substitution at parse time
+			'	eg. %myfunc arg - is converted to: myfunc ("arg") - which is then evaluated,
+			'	and whatever was returned by myfunc is substituted on the line
+			' 	Note: myfunc might well return a dot-line, to be further preprocessed in the next steps below
+			'	Note: Not recommended, but it might even return a Hashmark-line or "Chatter comment"
+			'	Note: Very much NOT recommended, WEIRD but interesting for experiments: it could return multi-line code
+			'	Note: returning another percent-line FAILS (syntax error), as this code is not called recursively
+			' ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----O
+			If Left (TestLine, 1) = "%" Then
+				saydbg "@runtestfile-percent Percent-sign preprocessing   initial: " & TestLine
+				Testline = funcsubst (Testline)
+				saydbg "@runtestfile-percent Percent-sign preproc after funcsubst: " & TestLine
+				Testline = eval (Testline)
+				saydbg "@runtestfile-percent Percent-sign preproc      after eval: " & TestLine
+				TestLine = rxLTrim (Testline)		' Enable further dot- and comma-line processing below
+			End If
+
 			' Asterisk lines executed immediately, for debugging, WITHOUT dot or slave-marker -substitution 
 			' ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----O
 			If Left (TestLine, 1) = "*" Then						' **** DEBUG
@@ -1350,36 +1381,26 @@ end function
 				'code = replace_args (code)
 				'sayerr "**** Asterisk mode, executing: " & code
 				executeglobal(code)
-				TestLine = ""
-				code = ""
+				Exit Do		' Continue
 			End If
 
 			' ----+----1--  RunTestFile  --3----+----4----+----5--  RunTestFile  --7----+----8--  RunTestFile  --O
 			' Hash-mark lines executed immediately, similar to preprocessor directives
 			' TODO: Make hashmarking MORE like REAL preprocessor directives, especially allow include files.
 			' ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----O
-			If Instr(rxLTrim (Testline), "#") = 1 Then			' #### DEBUG
+			If Left (TestLine, 1) = "#" Then			' #### DEBUG
 				TestLine = Mid (rxLTrim(TestLine), 2)
 				saydbg "@runtestfile Hashmark immediate Execute: " & TestLine
 				RunVbshLine(Testline)
-				Testline = ""
+				Exit Do		' Continue
 			End If
 
 			' "Chatter Comments" Initial '!: Generates "Direct" .vbst parse-time comment output
 			' ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----O
-			If Instr(rxLTrim (Testline), "'!:") = 1 Then			' #### DEBUG
+			If Instr(Testline, "'!:") = 1 Then			' #### DEBUG
 				say Testline
-				Testline = ""
+				Exit Do		' Continue
 			End If
-
-			' NOTE: multi-line code block with "<:" and ":>" as start and end tokens were REMOVED
-			'		Starting in version V0.07p02 2018-07-27
-			' Also REMOVED the error handling here. Let it just fail when the "<:" is not recognized
-			' If Left (TestLine, 2) = "<:" Then		' Left <: smiley-bird block indicator 
-			'	'GIVE ERROR MESSAGE HERE !!
-			'	sayerr "ERROR: Notation with symbols <: and :> was REMOVED in V0.07.p01 2018-07-27 "
-			'	sayerr "		{Curly-brace notation} should be used instead."
-			' End If	' If Left (TestLine, 2) = "<:" Then		' Left <: smiley-bird block indicator 
 
 
 			' ----+----1--  RunTestFile  --3----+----4----+----5--  RunTestFile  --7----+----8--  RunTestFile  --O
@@ -1395,65 +1416,103 @@ end function
 			' ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----O
 			' This is a multi-line block of code, enclosed by start and end tokens
 			' that MUST be read in from file FIRST, and THEN executed as ONE CHUNK
-			' The opening curly-brace (aka left-curly) "{"  and "}" closing curly-brace respectively are the start and end tokens
+			' The left and right curly-braces "{" and "}" are the start and end tokens
+			'!@Todo: TestCase: Handle case where end token "}" is on same line
+			'!@Todo: TestCase: what if fLine has end token followed by spaces(?)
+
 			If Left (TestLine, 1) = "{" Then		' Left-curly block indicator 
 				right_curly_found = False
-				TestLine = Mid (rxLTrim(fline), 2)
+				WithLevel = 0
+			
+				TestLine = Mid (TestLine, 2)
 				Do	' Loop until end of current curly-brace block
-					' "Chatter Comments" Initial '!: Generates "Direct" .vbst parse-time comment output
-					' ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----O
-					If Instr(rxLTrim (Testline), "'!:") = 1 Then			' #### DEBUG
-						say Testline
-						Testline = ""
-					End If
-
-					' "Percent-sign" lines: Initial "%" is executed immediately at parse-time
-					' ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----O
-					If Instr(rxLTrim (Testline), "%") = 1 Then			' #### DEBUG
-						TestLine = Mid (rxLTrim(TestLine), 2)
-						saydbg "@runtestfile Percent-sign immediate Execute: " & TestLine
-						RunVbshLine(Testline)
-						Testline = ""
-					End If
-
-					' ----+----1--  RunTestFile  --3----+----4----+----5--  RunTestFile  --7----+----8--  RunTestFile  --O
-					' "Hashmark" lines: Initial "#" triggers parse-time preprocessing
-					' ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----O
-					If Instr(rxLTrim (Testline), "#") = 1 Then			' #### DEBUG
-						TestLine = Mid (rxLTrim(TestLine), 2)
-						saydbg "@runtestfile-hash Hashmark preprocessing: " & TestLine
-						Testline = funcsubst (Testline)
-						saydbg "@runtestfile-hash Hashmark preprocessing: " & TestLine
-						Testline = eval (Testline)
-						saydbg "@runtestfile-hash Hashmark preprocessing: " & TestLine
-					End If
-
-					If Instr(rxLTrim(Testline), ".") = 1 Then
-						Testline = cmdsubst (TestLine)
-					End If
-
-					' Preprocess
-					'Testline = Trim (TestLine)
-					If Instr(rxLTrim(Testline), ",") = 1 Then
-					' If Mid(Testline, LTrimPos(Testline), 1) = "." Then
-						saydbg "@runtestfile_dot dot-preprocessing:"&TestLine  ' **** DEBUG
-						Testline = preprocess_cmdline (TestLine)
-						saydbg "@runtestfile_dot dot-preprocessed result:"&TestLine  ' **** DEBUG
-					End If
+					LTrimLine = RxLTrim (Testline)
 					
-					' TestCase: Handle case where end token "}" is on same line
-					' Uncertain, TestCase: what if fLine has end token followed by spaces(?)
+					If oRxEscMark.Test (Testline) Then		' Handle initial "escape-mark lines"
+															' ie. starting with special escape character: .,#€...
+
+						'escMark = oRxEscMark.Replace (Testline, "$2")	' The escape-mark character that was found
+						'escRest = oRxEscMark.Replace (Testline, "$3")	' Rest of line, after the escape-mark
+						
+						' "Percent-sign" lines: Function substitution at parse time
+						'	eg. %myfunc arg - is converted to: myfunc ("arg") - which is then evaluated,
+						'	and whatever was returned by myfunc is substituted on the line
+						' 	Note: myfunc might well return a dot-line, to be further preprocessed in the next steps below
+						'	Note: Not recommended, but it might even return a Hashmark-line or "Chatter comment"
+						'	Note: Very much NOT recommended, WEIRD but interesting for experiments: it could return multi-line code
+						'	Note: returning another percent-line would FAIL (syntax error), as this code is not called recursively
+						' ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----O
+						If Left(LTrimLine,1) = "%" Then			' #### DEBUG
+							TestLine = Mid (LTrimLine, 2)
+							saydbg "@runtestfile-percent Percent-sign preprocessing   initial: " & TestLine
+							Testline = funcsubst (Testline)
+							saydbg "@runtestfile-percent Percent-sign preproc after funcsubst: " & TestLine
+							Testline = eval (Testline)
+							saydbg "@runtestfile-percent Percent-sign preproc      after eval: " & TestLine
+							LTrimLine = rxLTrim (Testline)		' Enable further dot- and comma-line processing below
+						End If
+
+						' "Chatter Comments" Initial '!: Generates "Direct" .vbst parse-time comment output
+						If Instr(LTrimLine, "'!:") = 1 Then			' "Chatter Comments" #### DEBUG
+							say Testline
+							Testline = ""
+						End If
+
+						' "Hashmark" lines: Initial "#" is executed immediately at parse-time
+						If Left(LTrimLine,1) = "#" Then			' #### DEBUG
+							TestLine = Mid (LTrimLine, 2)
+							saydbg "@runtestfile hashmark immediate Execute: " & TestLine
+							RunVbshLine(Testline)
+							Testline = ""
+						End If
+
+						If Left(LTrimLine,1) = "." Then		' Preprocess dot-lines
+							If Left(LTrimLine,2) = ". " Or withLevel <= 0 Then		' Inside a With-block the dot must be followed by a space
+								Testline = cmdsubst (TestLine)
+								saydbg "@runtestfile-dot dot-preprocessed result:"&TestLine  ' **** DEBUG
+							End If
+						End If
+
+						If Left(LTrimLine,1) = "," Then		' Preprocess comma-lines
+							saydbg "@runtestfile-dot dot-preprocessing:"&TestLine  ' **** DEBUG
+							Testline = preprocess_cmdline (TestLine)
+							saydbg "@runtestfile-dot dot-preprocessed result:"&TestLine  ' **** DEBUG
+						End If
+
+					End If	' If oRxEscMark.Test (Testline) Then		' Handle initial "escape-mark lines"
+					
 					saydbg "@runtestfile-curly curly block line: " & TestLine
 					
-					'!@ TODO: Consier RCOGNIZING closing-curly at the END of a trailing comment
+					'!@ TODO: Consider RECOGNIZING closing-curly at the END of a trailing comment
 
-					If InStr(Testline,";") Then			
+					' Detect "With ... End With" blocks
+					' NOTE: "With " and "End With" must appear FIRST on the line, one space after "With" is required
+					'!@Todo	Todo: Error if curly-block is closed without ending a with-block
+					If InStr(1, LTrimLine,"With ", 1) = 1 Then
+						saydbg "@runtestfile-with With detected:"&TestLine
+						If withLevel = 0 Then withLineCount = 0
+						withLevel = withLevel + 1
+					End If
+
+					' Count number of lines in with-block (including nested blocks if any)
+					' Note: the count is not reset at end of with-block, only on start of the next one.
+					'		ie. understand withLineCount as "number of lines found in last with-block"
+					'		unchanged until the next one is found
+					If withLevel > 0 Then withLineCount = withLineCount + 1	
+
+					' Detect End of a with-block
+					If withLevel > 0 And InStr(1, LTrimLine,"End With", 1) = 1 Then
+						saydbg "@runtestfile-with With ended:"
+						withLevel = withLevel - 1
+					End If
+
+					If InStr(Testline,";") > 0 Then			' Generate helpful error info (line number) if semicolon used
 						If Right(RxRTrim(unComment(Testline)), 1) = ";" Then
 							sayerr "(RunTestFile): Warning: Eliminating final semicolon in file: " & shortfilename & ", Line no: " & flineNo
 							Testline = RxRTrim(unComment(Testline))
 							Testline = Left(TestLine, len(TestLine) - 1)
-						ElseIf InStr(checkQ(Testline),";") Then
-							semiFlag = flineNo
+						ElseIf InStr(checkQ(Testline),";") > 0 Then
+							semiLineNo = flineNo
 							sayerr "(RunTestFile): Warning: Unable to eliminate semicolon in file: " & shortfilename & ", Line no: " & flineNo
 							sayerr "Line: "&TestLine
 						End If
@@ -1461,7 +1520,7 @@ end function
 
 
 					' ----+----1--  RunTestFile  --3----+----4----+----5--  RunTestFile  --7----+----8--  RunTestFile  --O
-					If InStr(Testline,"}") Then			
+					If InStr(Testline,"}") > 0 Then			' Check for end of block
 						' Check if there is an end token "}" anywhere in the line: if so, it is a possible candidate for end of block
 						' (or the token could be inside a quote or part of a curly-brace substitution expression)
 						' Hopefully it is more efficient this way as we avoid calling checkQ(Testline) for every line
@@ -1478,7 +1537,7 @@ end function
 							Testline = RxRTrim(unComment(Testline))
 							Testline = Left(TestLine, len (TestLine) - 1 )
 							right_curly_found = True
-						ElseIf InStr(checkQ(Testline),"}") Then
+						ElseIf InStr(checkQ(Testline),"}") > 0 Then
 							sayerr "(RunTestFile): Warning, in file: " & shortfilename & ", Line no: " & flineNo
 							sayerr "Code after close token } not allowed. Code on following line discarded: "&TestLine
 							TestLine = ""
@@ -1486,18 +1545,14 @@ end function
 						End If
 					End If
 
-					'sayerr "@runtestfile_dot checking for dot in:"&TestLine  ' **** DEBUG
-
-					'sayq "Testline="&Testline  ' **** DEBUG
-
 					' ----+----1--  RunTestFile  --3----+----4----+----5--  RunTestFile  --7----+----8--  RunTestFile  --O
 					If len (code) > 0 Then code = code & VBCrLf 
 					code = code & TestLine
 
 					' Exit the loop if finished
-					If right_curly_found Or file.AtEndOfStream Then Exit Do ' Loop until end of current curly-brace block
+					If right_curly_found Or file.AtEndOfStream Then Exit Do ' Finished reading current curly-brace block
 
-					' Get next line
+					' Read next line within the block
 					' >>>>>>>>>>>>>>>>>>>>> Read Input: Mode = Curly-Multiline   >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 					fline = file.ReadLine
 					flineno = flineno + 1
@@ -1506,6 +1561,10 @@ end function
 				Loop ' ' Loop until end of current curly-brace block
 				' saydbg "@runtestfile curly block found:" & vbcrlf & "----------" & vbcrlf & code & vbcrlf & "----------"
 
+				'!@TODO: The discarding of blocks should be implemented as preprocessor directives instead
+				'! (ie. #define blockxyz ... #ifdef / #ifndef ...)
+				'! Drawback: Defined symbols must be kept as global vars, so it really boils down to the same thing
+				'! Current solution is just a durty hack: escape-mark lines are unaffected, ie. currently not discarded
 				If GlobalDiscardThisBlock Then
 					saydbg "@runtestfile Discarding THIS block {" & VBCrLf & code & VBCrLf & "}"
 					code = ""
@@ -1586,11 +1645,13 @@ end function
 			' multi-line block of code, signalled by space+underscore " _" at the end of each line,
 			' or just an underscore in the case of empty lines
 			' Note: The input lines are concatenated into one long line, space-separated, without any linefeeds
-			' TODO: Analyse possible conflict between Underscore-continued lines and smiley-bird blocks
+			' TODO: Analyse possible conflict between Underscore-continued lines and multi-line blocks
 			if len (code) = 0 Then code = TestLine
-			Do While Right(code, 2) = " _" Or Right(code, 3) = VBCrLf & "_"  Or code = "_"
+			' Do While Right(code, 2) = " _" Or Right(code, 3) = VBCrLf & "_"  Or code = "_"
+			Do While Right(RxRTrim(code), 2) = " _" Or Right(code, 3) = VBCrLf & "_"  Or RxTrim(code) = "_"
 				' >>>>>>>>>>>>>>>>>>>>> Read Input: Mode = Line-continuation   >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-				code = RTrim(Left(code, Len(code)-1)) & " " & Trim(file.ReadLine)
+				code = RxRTrim (code)
+				code = RTrim(Left(code, Len(code)-1)) & " " & RxTrim(file.ReadLine)
 				flineno = flineno + 1
 				blockLineCount = blockLineCount + 1
 			Loop
@@ -1629,8 +1690,11 @@ end function
 				RunVbshLine(code)
 
 				If MyErr.Number <> 0 Then
-					If semiFlag > 0 Then
-						sayerr "(RunTestFile): Execution Error: Check invalid semicolon in file: " & shortfilename & ", Line no: " & semiFlag
+					If semiLineNo > 0 Then
+						sayerr "(RunTestFile): Execution Error: Check invalid semicolon in file: " & shortfilename & ", Line no: " & semiLineNo
+					ElseIf withLineCount > 0 Then
+						sayerr "(RunTestFile): Execution Error: Expected ""End With"". Check ""With""-statement in file: " _
+						& shortfilename & ", Line no: " & withLineNo
 					Else 
 						sayerr "(RunTestFile): Execution Error in file: " & shortfilename & ", Line no: " & flineNo
 						'!@TODO: Limit the output of code here to the first n lines
@@ -1639,7 +1703,6 @@ end function
 					If exitOnError Then Exit Sub
 				End If
 
-				code = ""
 			ElseIf Not executeNow Then		' NOTE: Currently NOT used 
 				nonExeCount = nonExeCount+1
 			End If
@@ -1656,6 +1719,7 @@ end function
 
  sub rtf(s): RunTestFile s: end sub		' *** DEBUG
 
+_ 	
  Function sans_prompt (s, prompt)
 	sans_prompt = Replace (s, vbCrLf & prompt, "") '! Not sure if we should remove only one here (?)
 	'!sans_prompt = Replace (s, prompt) '! Not sure if we should remove these (?)
@@ -1708,8 +1772,13 @@ end function
  ' becomes: whatever "this is 'a string'" and { another 'one} again 
  ' but single-quotes within quotes or within curly-braces are unaffected
  	Dim pos1, pos2, pos3, endpos, remain 
-	 unComment = ""
-	 remain = s
+	If Not InStr (s, "'") > 0 Then
+		unComment = s
+		Exit Function
+	End If
+	
+	unComment = ""
+	remain = s
 	Do While len (remain) > 0
 		saydbg "@uncomment remain="&remain
 		pos1 = InStr (remain, """")
@@ -1984,10 +2053,33 @@ _
 _
  ' ====================================================================================================
  '_h1 Obsolete, Old, Deprecated and Forgotten
- ' Old stuff kept around in here for possible reference or, more likely, to be thrown out soon
+ ' Old stuff kept around in here just in case, to be thrown out soon
  ' ====================================================================================================
  
  ' DELETED 2018-06-30: Private Sub old_RunTestFile(ByVal filename)
+
+' 2018-08-18: OLD - readToken0 (ByRef s) - Get first token from a command line
+' ====================================================================================================
+Function readToken0 (ByRef s)
+	readToken0 = ""
+	Dim t
+	t = ""
+	Do While t = ""
+		arr = Split (s, " ", 2)
+		If ubound(arr) > 0 Then
+			t = arr(0)
+			s = arr(1)
+		ElseIf ubound(arr) = 0 Then
+			t = arr(0)
+			s = ""
+		Else
+			s = ""
+			Exit Do
+		End If
+	Loop
+	readToken0 = t
+End Function ' Function readToken0 (s)
+
 
 
  ' ====================================================================================================

@@ -8,14 +8,14 @@ HideSlavePrompt = True
 . TCNew 0.00 Intro Messages
 ' =================================================================================================
 say "Running Test number " & TCnum
-_.say Running Test: {TCnum} (YEEAAASS, name substitution is working NOW !!!)
-_.say Echoing 3*4 here: {3*4} (YEEAAASS, if you see 12, expr substitution is working too !!!)
+_. say Running Test: {TCnum} (YEEAAASS, name substitution is working NOW !!!)
+_. say Echoing 3*4 here: {3*4} (YEEAAASS, if you see 12, expr substitution is working too !!!)
 
 ' =================================================================================================
 . TCNew 0.01 Test argsubst with multiple elements
 ' =================================================================================================
-' _ .dbg add getopts ' Debug messages for getopts need to be turned on in slave process
-'say "string to test: " & "<tab><space><tab><space>cmd time ""n{o}w"" to {""Clock {says\}: "" & time} to look $mystring at mystring: {mystring} ' And a ""trailing comment"
+' _ . dbg add getopts ' Debug messages for getopts need to be turned on in slave process
+say "string to test: " & "<tab><space><tab><space>cmd time ""n{o}w"" to {""Clock {says\}: "" & time} to look $mystring at mystring: {mystring} ' And a ""trailing comment"
 _ mystring = ".my-string."
 _ args = VBTab & " " & VBTab & " "
 _ args = args & "cmd time ""n{o}w"" to {""Clock {says\}: "" & time} to look $mystring at mystring: {mystring} ' And a ""trailing comment"
@@ -23,11 +23,82 @@ _ -x say argsubst (args)
 TCexpected = ""
 MySt = Foundline
 ' log success or failure of various regex comparisons
+' .dbg add tcsubresult
 TCcheckSubResult "Intentional fail:", MySt, "^<anything323464543>"     ' fail
 TCcheckSubResult "Initial whitespace intact?", MySt, "^""\t \t "       ' initial whitespace intact?
 TCcheckSubResult "Regular text:", MySt, "^cmd time "
-TCcheckSubResult "Quoted string, including curly braces:", MySt, "^""""n{o}w"""""
+TCcheckSubResult "Quoted string, including curly braces:", MySt, "^""""n{o}w"""" "
+TCcheckSubResult "Regular text and second curly-brace expression:", MySt, "^to Clock {says\\}: \d\d:\d\d:\d\d "
+TCcheckSubResult "Text and dollar-substitution:", MySt, "^to look "" & mystring & """
+TCcheckSubResult "Text and curly-brace substitution:", MySt, "^\s*at mystring: .my-string."
+TCcheckSubResult "Trailing comment:", MySt, "^\s*' And a """"trailing comment"""""""
+' .dbg del tcsubresult
+
+. TClog Remaining string: $MySt
+%psaylvar3cmq MySt
 
 ' =================================================================================================
+. TCNew 0.02 Classes and dot-notation
+' =================================================================================================
+' _ . dbg add getopts ' Debug messages for getopts need to be turned on in slave process
+
+'.dbg add runtestfile runtestfile-with
+'.dbg show
+
+{
+# If GtestPerson1267_ Then GlobalDiscardThisBlock = True
+GtestPerson1267_ = True
+'#.say ##############  About to declare Class testPerson1267  ################
+
+# If GlobalDiscardThisBlock Then say "Class testPerson1267 already defined: Skipping"
+.say declaring Class testPerson1267
+
+Class testPerson1267
+    public id, name, parent
+    
+    public Sub setvals (i, n, p)
+        With me
+            .id         = i
+            .name       = n
+            Set .parent = p
+        End With
+    End Sub
+
+    public Sub sayId ()
+        If parent is Nothing Then
+            .say Name: $name id: $id parent: None
+        Else
+            .say id: $id $name parent: $parent.id ($parent.name)
+        End If
+    End Sub
+
+    public Sub traceparents ()
+        Set cur = me
+        Do
+            cur.SayId
+            Set cur = cur.parent
+        Loop While Not cur is Nothing
+    End Sub
+
+End Class
+'#.say ##############  Done declaring Class testPerson1267  ################
+}
+
+'.dbg del runtestfile runtestfile-with
+'.dbg show
+
+set dude1 = new testPerson1267
+dude1.setvals 1, "Adam", Nothing
+
+set dude2 = new testPerson1267
+dude2.setvals 2, "Abel", dude1
+set dude3 = new testPerson1267
+dude3.setvals 3, "Biebel", dude2
+set dude4 = new testPerson1267
+dude4.setvals 4, "Ciebel", dude3
+set dude5 = new testPerson1267
+dude5.setvals 5, "DeCiebel", dude4
+
+
 
 

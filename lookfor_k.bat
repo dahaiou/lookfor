@@ -11,4 +11,11 @@ rem and you can simply go "lookfor" to run it again
 
 rem From an already open cmd console, call lookfor.bat instead
 
-cmd.exe /K @cscript.exe //NoLogo lookfor.vbs %*
+set batpath=%~dp0
+set batpath=%batpath:~0,-1%
+
+rem echo batpath is: %batpath%
+
+cmd.exe /K @cscript.exe 2>&1 /NoLogo %batpath%\lookfor.vbs %*
+
+rem OLD:cmd.exe /K @cscript.exe //NoLogo lookfor.vbs %*

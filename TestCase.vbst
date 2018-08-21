@@ -90,7 +90,7 @@ Function dos (DOSCmd)
 
   ' Dirty hack: Fix chr(255) which plagues redirected dos output due to codepage differences
   dos = Replace(dos,chr(255)," ")	
-End Function 
+End Function ' Function dos (DOSCmd) 
 
 Sub saydos (s)
 	say dos(s)
@@ -110,8 +110,12 @@ End Sub
 	'   oRxDlr2Eol : Substitution of "Dollar syntax" ie. $varname or ${varname} or ${<expression>}
 	' 	Matches from dollar sign to end-of-line. The dollar sign $ must be the first non-blank char on the line
 	' 	Returns varname (or expression) in $1$3 and remaining text in $2$4
-	Dim oRxDlr2Eol 		: Set oRxDlr2Eol 		= NewRegExp("^[^\S\n]*\${([^}]*)}([\s\S]*)|^[^\S\n]*\$([^\W0-9]\w*)([\s\S]*)$", 	True, False)
+	'	(HS 2018-08-17): Initial dot "." or dot elsewhere is now valid as part of varname (eg. "$.varname" in a with-block)
+	'					 However: varname MUST have an identifier character (a-zA-Z_) as first character (or as second, if initial dot is present)
+	Dim oRxDlr2Eol 		: Set oRxDlr2Eol 		= NewRegExp("^[^\S\n]*\${([^}]*)}([\s\S]*)|^[^\S\n]*\$(\.?[^\W0-9][\w\.]*)([\s\S]*)$", 	True, False)
 
+	' Trailing dots that may appear in varname after using oRxDlr2Eol above:
+	Dim oRxTailDots		: Set oRxTailDots		= NewRegExp("^(\.?[^\W0-9][\w\.]*[^\.])(\.*)(\n|$)|^(\.?[^\W0-9])(\.*)(\n|$)", 	True, False)
 
 	Dim oRxCurlySubst 	: Set oRxCurlySubst 	= NewRegExp("{([^}]*)}([\s\S]*)$|{([\s\S]*)$", 		True, True)
 	Dim oRxShSubst 		: Set oRxShSubst 		= NewRegExp("\%{(\w+)}|\%(\w+)%?", 					True, True)
@@ -154,15 +158,21 @@ End Sub
 	'Dim oRxIniPunct : Set oRxIniPunct = NewRegExp("^[^\S\n]*[,.;:_\\\|\@\#\~!$%&=?+-*/]", True, True)
 	Dim oRxIniPunct : Set oRxIniPunct = NewRegExp("^[^\S\n]*[,.;:_\\\|\@\#\~!$%&=?\+\-\*\/]", True, True)
 	'Dim oRxIniToken : Set oRxIniToken = NewRegExp("^([^\S\n]*[a-zA-Z]\w*[^\S\n]?)([\s\S]*)$", True, True)
-	Dim oRxIniToken : Set oRxIniToken = NewRegExp("^([^\S\n]*[^\W0-9]\w*[^\S\n]?)([\s\S]*)$", True, True)
+	'Dim oRxIniToken : Set oRxIniToken = NewRegExp("^([^\S\n]*[^\W0-9]\w*[^\S\n]?)([\s\S]*)$", True, True)
+	Dim oRxIniToken : Set oRxIniToken = NewRegExp("^([^\S\n]*\.?[^\W0-9][\w\.]*=?[^\S\n]?)([\s\S]*)$", True, True)
 
-	'   oRxIniToken2 : Match "(_@)(_<identifier>_)(<rest of string>)" where "_" is Whitespace, "@" is any punctuation
-	' 	Returns: $1 = punctuation (or empty), $2 = identifier (required), $3 = rest of string (or empty)
-	Dim oRxIniToken2 : Set oRxIniToken2 = NewRegExp("^([^\S\n]*[^\W0-9]\w*=?[^\S\n]?)([\s\S]*)$", True, True)
+	'   oRxIniToken2 : Match "(_@_<identifier>_)(<rest of string>)" where "_" is Whitespace, "@" is any punctuation
+	' 	Returns: $1 = Initial token (required), $2 = rest of string (or empty)
+	'	(HS 2018-08-17): Initial dot "." or dot elsewhere is now valid as part of token name (eg. ".varname" in a with-block)
+	'					 However: Token MUST have an identifier character (a-zA-Z_) as first character (or as second, if initial dot is present)
+	'					 A final equal sign "=" is accepted as part of token (for assignment statements)
+	Dim oRxIniToken2 : Set oRxIniToken2 = NewRegExp("^([^\S\n]*\.?[^\W0-9][\w\.]*=?[^\S\n]?)([\s\S]*)$", True, True)
 
 	rWSpace="[^\S\n]*"
 	rPunct="[,.;:_\\\|\@\#\~!$%&=?\+\-\*\/]"
-	rIdfier="[^\W0-9]\w*"
+	' NOTE: dot "." must be accepted as part of identifier
+	'		Even _initial_ dot is possible, as it could be within a With-block
+	rIdfier="\.?[^\W0-9][\w\.]*"
 
 	Dim oRxIniPuncToken : Set oRxIniPuncToken = NewRegExp("^([^\S\n]*[,.;:_\\\|\@\#\~!$%&=?\+\-\*\/])([^\S\n]*[^\W0-9]\w*[^\S\n]?)([\s\S]*)$", True, True)
 	Dim oRxWspace	: Set oRxWspace = NewRegExp("^([^\S\n]*)([\s\S]*)$", True, True)
@@ -172,13 +182,19 @@ End Sub
 
 ' ====+====1====+====2====+====3====+====4====+====5====+====6====+====7====+====8====+====9====+====0	
 { Function cmdsubst (ByRef s)
-	Dim token, argstr, remain
+	Dim opts, token, argstr, remain
+
+	getIniOpts ":U", s, opts
+
 	token = ""
 	argstr = ""
-	remain = ""
+	remain = s
+	saydbgq "@cmdsubst called s="&s
+
+	If Not find_opt("U", opts) Then remain = uncomment(remain)
 
 	' Remove initial (only one) punctuation character, any of ",.;:_\|@#~!"·$%&=?¿+-*/"
-	remain = oRxIniPunct.Replace (s, "")
+	remain = oRxIniPunct.Replace (remain, "")
 	If oRxIniToken2.Test (remain) Then
 		token  = oRxIniToken2.Replace (remain, "$1")
 		remain = oRxIniToken2.Replace (remain, "$2")
@@ -187,8 +203,8 @@ End Sub
 
 	remain = argsubst(remain)
 
-	'saydbg "@cmdsubst token="&token
-	'saydbg "@cmdsubst remain="&remain
+	saydbg "@cmdsubst token="&token
+	saydbg "@cmdsubst remain="&remain
 	cmdsubst = token & " " & remain
 	'cmdsubst = token & " " & """" & remain & """"
 
@@ -197,14 +213,25 @@ End Sub
 }
 
 ' ====+====1====+====2====+====3====+====4====+====5====+====6====+====7====+====8====+====9====+====0	
+'! Turn '*<functionName> <rest of line>' into 'functionName ("<argsubst(rest of line)>")'
+'! where "*" represents _any_ punctuation character.
+'! Initial punctuation character and trailing comments are removed (except with option -U)
+'! and <rest of line> is processed by argument substitution (sub argsubst)
+'! eg. '%myclass.setfilename filename' becomes 'myclass.setfilename ("filename")'
+'! Options: -U Do NOT eliminate trailing comment from end of line
 { Function funcsubst (ByRef s)
-	Dim token, argstr, remain
+	Dim opts, token, argstr, remain
+
+  	getIniOpts ":U", s, opts
+
 	token = ""
 	argstr = ""
-	remain = ""
+	remain = s
+
+	If Not find_opt("U", opts) Then remain = uncomment(remain)
 
 	' Remove initial (only one) punctuation character, any of ",.;:_\|@#~!"·$%&=?¿+-*/"
-	remain = oRxIniPunct.Replace (s, "")
+	remain = oRxIniPunct.Replace (remain, "")
 	If oRxIniToken.Test (remain) Then
 		token  = oRxIniToken.Replace (remain, "$1")
 		remain = oRxIniToken.Replace (remain, "$2")
@@ -222,12 +249,17 @@ End Function ' Function funcsubst (s)
 
 ' ====+====1====+====2====+====3====+====4====+====5====+====6====+====7====+====8====+====9====+====0	
 { Function argsubst(ByRef s)
-	Dim result, leftstr, remain
+	Dim result, leftstr, remain, r1, result0, remain0, i, stagCount
+	result0 = ""
+	remain0 = ""	
+
 	result = ""
 	leftstr = ""
 	remain = s
 
 	i=0
+	stagCount = 0
+
 	Do While Not remain = ""
 		saydbg   "@argsubst =============================="
 		saydbgq  "@argsubst remain="&remain
@@ -238,12 +270,14 @@ End Function ' Function funcsubst (s)
 		'saydbgq  "@argsubst leftstr="&leftstr
 		'saydbgq  "@argsubst remain="&remain
 		splitmark=Left(remain, 1)
-		saydbg  "@argsubst splitmark="&splitmark
+		'saydbg  "@argsubst splitmark="&splitmark
 
 		' pass the "normal text" in leftstr to the "left side" ie. append it to result
 		' NOTE: In some special cases the last character is removed in the logic below
 		result = result & leftstr		
-		saydbgq  "@argsubst result="&result
+		'saydbgq  "@argsubst result="&result
+
+		saydbgq  "@argsubst /result/splitmark/leftstr/remain/ = /" & result & "/" & splitmark & "/" & leftstr & "/" & remain & "/"
 
 		' "escaped" splitmark found ie. it does not count
 		' just pass the splitmark to the "left side" ie. append it to result	
@@ -259,16 +293,18 @@ End Function ' Function funcsubst (s)
 		'!			... then "text1\^$var1" appends "text1\" & var1 & " with var1 substituted
 		'!			NOW. if you DO want up-arrow in that position, it just needs to be doubled
 		'!			so "text1\^^$var1" appends "text1\^" & var1 & " ie. including ^ up-arrow and with var1 substituted
-		If Right(result,2) = "^" Then
+		If Right(result,1) = "^" Then
 			' Remove the escape-cancellation character ^ (but if it was doubled ^^ the first one is left in)
-			result = Left(result,len(result - 1))
+			saydbgq "@argsubst Excape cancellation ^ found: /result/splitmark/leftstr/remain/ = /" & result & "/" & splitmark & "/" & leftstr & "/" & remain & "/"
+			result = Left(result,len(result) - 1)
 		End If
 
 		' NOTE: For escape-cancellation to work it is IMPORTANT to check end of leftstr here, not of result, 
 		If Right(leftstr,1) = "\" Then
+			saydbgq "@argsubst Backslash found: /result/splitmark/leftstr/remain/ = /" & result & "/" & splitmark & "/" & leftstr & "/" & remain & "/"
 			' first remove the escape-mark (backslash) from end of result
 			' then append the splitmark as-is
-			result = Left(result,len(result - 1)) & splitmark
+			result = Left(result,len(result) - 1) & splitmark
 			remain = Mid(remain, 2)		' remove splitmark from remaining string
 	
 		ElseIf splitmark = """" Then	' Handle double-quote substring
@@ -282,7 +318,8 @@ End Function ' Function funcsubst (s)
 			saydbgq  "@argsubst at end of quote, result="&result
 			' remain = Mid(remain, 2)		' remove close-quote from remaining string
 	
-		ElseIf splitmark = "'" Then	'Handle single-quote ie. comment string until eol
+		ElseIf splitmark = "a" Then	'Handle single-quote ie. comment string until eol
+			saydbgq "@argsubst Comment indicator found: /result/splitmark/leftstr/remain/ = /" & result & "/" & splitmark & "/" & leftstr & "/" & remain & "/"
 			result = result & oRxQuotesx2.Replace (remain, "$1$1")
 			remain = ""			' Empty remain will cause immediate exit from loop
 								' NOTE: multi-line input not handled here. If so we need to delete only to eol and continue
@@ -291,13 +328,35 @@ End Function ' Function funcsubst (s)
 			' Extract the first $variable substitution from remain
 			' The logic below depends on knowing the fact that the first substitution begins in position 1
 			' and after substitution the first double-quote, that we just inserted, will be in char position 1
-			oRxDlr2Eol.Global = False
+			r1 = Mid (remain, 2, 1)
 			saydbgq  "@argsubst About to do $substitution, remain="&remain
-			leftstr = oRxDlr2Eol.Replace(remain, """ & $1$3 & """)	' extract the replacement <str>, from either format: $str or ${str}
-			remain  = oRxDlr2Eol.Replace(remain, "$2$4")			' Remaining text
-			qpos = InStr(2, remain, """")			' Find pos of second just-inserted quote char (we know first one is in pos 1 )
-					' HOWEVER - This FAILS if the replacement string contained double-quotes
-			result = result + leftstr	' append the variable or expression substitution to result
+			leftstr = oRxDlr2Eol.Replace(remain, "$1$3")	' extract the replacement <str>, from either format: $str or ${str}
+			remain  = oRxDlr2Eol.Replace(remain, "$2$4")	' Remaining text
+
+			' Reject trailing dots from the varname in leftstr (applies only to the $varname syntax, not ${varname})
+			' Rejection happens by removing them from the end of leftstr and sticking back in at the beginning of remain
+			If Not r1 = "{" Then 
+
+				tdots = false																					' #### DEBUG
+				If Right(leftstr, 1) = "." Then 
+					tdots = true				' #### DEBUG
+					saydbgq		"@argsubst BEFORE: Trailing dots rejection, leftstr= '" & leftstr		' #### DEBUG
+					saydbgq		"@argsubst remain ='" & remain										' #### DEBUG
+				End If
+
+
+				remain	= oRxTailDots.Replace(leftstr, "$2$5") & remain
+				leftstr = oRxTailDots.Replace(leftstr, "$1$4")
+
+				If tdots Then
+					saydbgq		"@argsubst AFTER: leftstr= '" & leftstr		' #### DEBUG
+					saydbgq		"@argsubst remain ='" & remain										' #### DEBUG
+				End If
+
+			End If
+			
+			'result = result & "" & leftstr & ""	' append the variable or expression substitution to result
+			result = result & """ & " & leftstr & " & """	' append the variable or expression substitution to result
 			saydbgq  "@argsubst $substitution done, leftstr="&leftstr
 			saydbgq  "@argsubst ...and remaining remain="&remain
 
@@ -393,27 +452,50 @@ End Function ' Function funcsubst (s)
 
 				End If
 			End If
+
+		Else					' Splitmark unknown (not handled above). Just append and continue
+			saydbgq "@argsubst Unknown splitmark found: /result/splitmark/leftstr/remain/ = /" & result & "/" & splitmark & "/" & leftstr & "/" & remain & "/"
+			result = result & splitmark
+			remain = Mid(remain, 2)		' remove splitmark from remaining string
 		End If
 
 		'remain = Mid(remain, 2)
+		If result = result0 And remain = remain0 Then
+			stagCount = stagCount + 1
+		Else
+			stagCount = 0
+		End If
+
+		if stagCount > 2 Then
+			sayerr "Error (argsubst): Loop NOT making progress: result = '" & result & "'"
+			sayerr "remain = '" & remain & "'"
+			Exit Do		' #### DEBUG
+		End If
+
+
 		i=i+1						' #### DEBUG
-		if i > 12 Then Exit Do		' #### DEBUG
+		if i > 12 Then
+			sayerr "Error (argsubst): Loop count exceeded, i = " & i
+			Exit Do		' #### DEBUG
+		End If
+		result0 = result
+		remain0 = remain
 	Loop
 	
 	result = """" & result & """"
-	'sayq "result="&result
+	saydbgq   "@argsubst Returning: result="&result
+
 	argsubst = result
 End Function ' Function argsubst(s)
 ' ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----O
 
+'! Call argsubst and then remove the enclosing quotes (first and last char) from the result
 Function argsubs2 (ByRef s)
 	argsubs2 = argsubst (s)
-	argsubst2 = Mid(argsubs2, 2)
-	argsubst2 = Left(argsubs2, Len (argsubs2) - 1)
-End Function
+	argsubs2 = Mid(argsubs2, 2)
+	argsubs2 = Left(argsubs2, Len (argsubs2) - 1)
+End Function ' Function argsubs2 (ByRef s)
 }
-
-{
 
 ' ====================================================================================================
 ' ====================================================================================================
@@ -450,7 +532,7 @@ End Function
 ' 	d. End and close
  
 ' ====================================================================================================
-Sub TCwriteLogFile (ByRef filePath, ByRef s)
+{ Sub TCwriteLogFile (ByRef filePath, ByRef s)
 	Const ForReading = 1, ForWriting = 2, ForAppending = 8
 	Dim fso, sh, file, fileText, dir
 	Dim i, k
@@ -473,20 +555,18 @@ end Sub ' Sub TCwriteLogFile ()
 }
 
 
-{
  '_h2 TCNew (s) - Start New TestCase: Reset relevant bookkeeping vars and announce in log output
  ' ====================================================================================================
-Sub TCNew (s)
-
+{ Sub TCNew (s)
+	Dim myLocVar1
 	' Decode opts and args
 	sArr = Split (Trim(s), " ", 2)
-	Dim myLocVar1
 	myLocVar1 = "Inside Sub TCNew, called with s='" & s & "'"
 
 	' The following does not display as intended because myLocVar1 is local
 	' TClog replace_args ("TCNew saying myLocVar1:{myLocVar1}")
-	'.say TCNew saying myLocVar1:{myLocVar1}
-    '.say TCNew saying myLocVar1:{myLocVar1}
+	'. say TCNew saying myLocVar1:{myLocVar1}
+    '. say TCNew saying myLocVar1:{myLocVar1}
 
 	' Close and reopen TClogfile for each new TestCase (Only one TC worth of log output is lost in case of error)
 
@@ -514,30 +594,37 @@ End Sub ' Sub TCNew (s)
 ' TODO: Outfiles NIY, Also: control verbosity level with global variables
 Sub TClog (s)
 	say s
-	oTClogFile.WriteLine(s)
+	If oTClogFile Is Nothing Then
+		' sayerr "Warning (TClog): Unable to write to logfile. No log file open"
+	Else 
+		oTClogFile.WriteLine(s)
+	End If
 End Sub ' Sub TClog (s)
 
 Sub TCcheckResult (ByRef line, ByRef expected)
 	Dim caption: caption = ""
 	TCcheckSubResult caption, line, expected
 End Sub ' ...
+}
 
 
 '_h2 TCcheckSubResult (caption, line, expected) - Check result of TestCase, update bookkeeping and write log outputs
 ' ====================================================================================================
-'!@TODO: ...
-'! Options to:
-'!		o -i Ignorecase (default is false)
-'!		o (Default): Remove the matched pattern (in case it matched)
-'!		o -R Do NOT Remove anything
-'!		o -l Remove the line where the matched pattern was found
-'!		o Remove from beginning up to the matched pattern
-'!		o Remove from beginning up to end of line where pattern found
-'!		o 
-'!		o 
-Sub TCcheckSubResult (ByRef caption, ByRef line, ByRef expected)
+	'!@TODO Todo: Sub TCcheckSubResult (caption, line, expected)
+	'! Options to:
+	'!	o -i Ignorecase (default is false)
+	'!	o (Default): Remove the matched pattern (in case it matched)
+	'!	o -R Do NOT Remove anything
+	'!	o -l Remove the line where the matched pattern was found
+	'!	o Remove from beginning up to the matched pattern
+	'!	o Remove from beginning up to end of line where pattern found
+	'!	o 
+	'!	o 
+
+{ Sub TCcheckSubResult (ByRef caption, ByRef line, ByRef expected)
+
 	' Preparation
-	saydbg "@TCcheckResult enter"			' **** DEBUG
+	saydbg "@tcsubresult enter"			' **** DEBUG
 	TCsubNum = TCsubNum + 1
 
 	If oTCregx is Nothing then
@@ -548,11 +635,15 @@ Sub TCcheckSubResult (ByRef caption, ByRef line, ByRef expected)
 
 '	oTCregx.pattern = "(" & expected & ")([\s\S]*)"
 	oTCregx.pattern = expected
-	saydbg "@TCcheckResult about to execute pattern:" & "(" & expected & ")([\s\S]*)"			' **** DEBUG
+	saydbg "@TCcheckResult|tcsubresult about to execute pattern:" & "(" & expected & ")([\s\S]*)"			' **** DEBUG
+
+	saydbgq "@TCcheckResult|tcsubresult Comapring Expected:" & expected
+	saydbgq "@TCcheckResult|tcsubresult To actual line    :" & line
+
 	Set oTCmatch = oTCregx.Execute(line)
 
 	
-	'	saydbg "@TCcheckResult Now checking if matched or not"			' **** DEBUG
+	'	saydbg "@TCcheckResult|tcsubresult Now checking if matched or not"			' **** DEBUG
 	' Now check if it matched or not
 	' If oTCmatch.Count > 0 Then
 	If oTCregx.Test(line) Then
@@ -564,21 +655,350 @@ Sub TCcheckSubResult (ByRef caption, ByRef line, ByRef expected)
 		'TCremain = oTCmatch(0).submatches(max)
 		TCremain = oTCregx.Replace (line, "")
 		line = TCremain
+	# If dbg_ontopic ("tcsubresult") <> "" Then dbg "add argsubst"
 		'TCcheckMessage = argsubs2 ("==== Result: TC-$TCnum $caption OK")
 		'TClog argsubs2 ("==== Result: TC-$TCnum $caption OK")
-		'.TCcheckMessage= ==== Result: TC-$TCnum $caption OK
-		.TCcheckMessage= ==== Result OK: TC-$TCnum.$TCsubNum $caption
+		'. TCcheckMessage= ==== Result: TC-$TCnum $caption OK
+		'. TCcheckMessage= ==== Result OK: TC-$TCnum.$TCsubNum $caption
+		. TCcheckMessage= ==== Result OK: TC-$TCnum.$TCsubNum $caption
+	# If dbg_ontopic ("tcsubresult") <> "" Then dbg "del argsubst"
 		TClog TCcheckMessage
 	Else
 		TCsuccess = False
 		iTCTotCount  = iTCTotCount  + 1
 		iTCFailCount = iTCFailCount + 1
+	# If dbg_ontopic ("tcsubresult") <> "" Then dbg "add argsubst"
 		'TClog argsubs2 ("==== Result: TC-$TCnum $caption #### FAILED ####")
-		'.TCcheckMessage= ==== Result: TC-$TCnum $caption #### FAILED ####
-		.TCcheckMessage= #### FAILED ####: TC-$TCnum.$TCsubNum $caption
+		'. TCcheckMessage= ==== Result: TC-$TCnum $caption #### FAILED ####
+		. TCcheckMessage= #### FAILED ####: TC-$TCnum.$TCsubNum $caption
+	# If dbg_ontopic ("tcsubresult") <> "" Then dbg "del argsubst"
 		TClog TCcheckMessage
 
 	End If
  End Sub ' Sub TCcheckSubResult (ByRef caption, ByRef line, ByRef expected)
+}
+
+' =================================================================================================
+{ Private Sub RunTest(ByVal filename)
+	' take filename as input
+	'		extension .vbst is added unless given
+	'		other extensions (dot anywhere in filename) are preserved
+	'		filename. overrides: dot is removed and no extension used
+	' log file is filename.log
+	'		TODO: nifty way to specify other extensions eg. .vbstlog
+	'		Initial test stamp logged: Date filename etc. 
+	'		previous logfile is overwritten
+	'		TODO: option to rename previous logfile
+	'		TODO: option to append to logfile instead
+	'		logfile is closed and reopened for append for each new TestCase to minimise loss on deadlock or error
+	'		log output is flushed continuously on every write
+	'		TODO: options for summary/normal/detailed log output
+	'				detailed: 	- Initial presentation blurb for each test case
+	'							- "comment" log commands eg. "setting up for test xyz"
+	'							- all sent setup commands are logged (eg. setting memory)
+	'							- all setup output received back (confirmations activated if present)
+	'							- sent test commands are logged
+	'							- stepwise execution with logging defined at each step
+	'							- "misc" detailed schemes yet to be thought of
+	'							- all test output received back
+	'							- all test results 
+	'							- all output/lookfor comparisons on failure
+	'				normal: 	- Initial presentation blurb for each test case
+	'							- "comment" log commands eg. "setting up for test xyz"
+	'							- NOT all sent setup commands are logged (eg. setting memory)
+	'							- NOT all setup output received back (confirmations activated if present)
+	'							- all sent test commands are logged
+	'							- NOT (probably) stepwise execution with logging defined at each step
+	'							- NOT (probably) "misc" detailed schemes yet to be thought of
+	'							- all test output received back
+	'							- all test results 
+	'							- all output/lookfor comparisons on failure
+	'				summary: 	- NO Initial presentation blurb for each test case
+	'							- Possibly test section logs ie. log starting in on new chapter 
+	'							- NOT all "comment" log commands 
+	'							- NOT all sent setup commands are logged (eg. setting memory)
+	'							- NOT all setup output received back (confirmations activated if present)
+	'							- NOT all sent test commands are logged
+	'							- NOT (probably) stepwise execution with logging defined at each step
+	'							- NOT (probably) "misc" detailed schemes yet to be thought of
+	'							- NOT all test output received back
+	'							- All test results with 
+	'							- NOT all output/lookfor comparisons on failure
+	'				normal:		- 
+	'				
+	'				
+	' console output:
+	'		Complete text seen, same as logfile
+	'		TODO: options for summary/normal/detailed console output
+	' ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----O
+	Const ForReading = 1, ForWriting = 2, ForAppending = 8
+	Dim testFileName, logFileName, testfnamepart, testfbasenamepart, testflogext, testDirPath
+
+	'!@Todo: Testfile in current dir by default (not much sense in searching for it in env:PATH)
+	'!@Todo: Logfile in current dir by default, even if Testfile is not. option to send it to dir of testfile
+	testflogext = "log"
+
+	' Get fullpath of input file and logfile:
+
+	TCfileName = findFileName(Trim(filename))
+
+	If Trim (TCfileName) = "" Then
+		. sayerr Error (RunTest): File $filename Not found.
+		Exit Sub
+	End If
+
+	testFNamepart = GoFS.GetFileName (TCfileName)
+	testFBaseNamepart = GoFS.GetBaseName (TCfileName)
+	testDirPath = Left(TCfileName, Len (TCfileName) - Len (testfnamepart))
+	TClogFileName = testDirPath & testFBaseNamepart & "." & testflogext
+
+	saydbg "@runtest TCfileName    : " & TCfileName
+	saydbg "@runtest TClogFileName : " & TClogFileName
+	' ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----O
+	' Open oTClogFile
+	' Todo: if old logfiles present, choose between: overwrite, append, rename
+
+	Set oTClogFile = GoFS.OpenTextFile (TClogFileName, ForWriting, True )
+	'If Err Then Errorhandling...
+	
+	. TClog $ProgNameString, Running Test File on: $date $time
+	. TClog TCfileName    : $TCfileName
+	. TClog TClogFileName : $TClogFileName
+	'TClog ""
+
+	runTestFile TCfileName
+
+	' ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----O
+	'Cleanup
+	oTClogFile.Close
+	Set oTClogFile = Nothing
+
+End Sub ' Private Sub RunTest(ByVal filename)
+}
+
+Set rtest=GetRef ("RunTest")
+
+{ Sub docit (fname)
+	' Extract fname into _full, _path, _stem, _extension
+	fname = Trim(GoSh.ExpandEnvironmentStrings(fname))
+	If InStr(fname, ".") = 0 then
+		fbasename = fname
+		If GoFs.FileExists(fbasename & ".vbs") Then
+			fname = (fname & ".vbs")
+		ElseIf GoFs.FileExists(fbasename & ".vbsx") Then
+			fname = (fname & ".vbsx")
+		ElseIf GoFs.FileExists(fbasename & ".vbst") Then
+			fname = (fname & ".vbst")
+		End If
+	End If
+
+	fbasename = GoFs.GetBaseName(fname)
+
+	If Not GoFs.FileExists(fname) Then
+		sayerr "Error (docit), File not found: " & fname
+		Exit Sub
+	End If
+
+	. say command to run: cscript.exe //NoLogo VBSdoc_hs.vbs /q /a /i:$fname /o:./docs/$fname
+
+	. saydos cscript.exe //NoLogo VBSdoc_hs.vbs /q /a /i:$fname /o:./docs/$fname
+End Sub
+}
+	
+' ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----O
+' Class SlaveInterface
+' ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----O
+'
+' If SlaveInterface_Defined Then GlobalDiscardNextBlock = True
+' SlaveInterface_Defined = True
+
+#.say Testing: Hashmark syntax working outside curly-block, or not?
+
+{ 
+ #.say Testing: Hashmark syntax working in curly-block, or not?
+ # If SlaveInterface_Defined Then GlobalDiscardThisBlock = True
+ # If SlaveInterface_Defined Then sayerr "Skipping: Class SlaveInterface already defined"
+ # SlaveInterface_Defined = True
+
+ #.say ##############  (Experimental) HASHmark Subsitution ################
+
+
+Class SlaveInterface
+
+	' Default Parameters
+	Public ESlvIn_Dfl, LSlvIn_Dfl, ESlvOut_Dfl, LSlvOut_Dfl, LWarn_Dfl
+	Public ESlvInMark_Dfl, LSlvInMark_Dfl, ESlvOutMark_Dfl, LSlvOutMark_Dfl
+
+	' Current Parameters
+	Public ESlvIn, LSlvIn, ESlvOut, LSlvOut, LWarn
+	Public ESlvInMark, LSlvInMark, ESlvOutMark, LSlvOutMark
+
+	' ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----O
+	Private Sub Class_Initialize ()
+
+		' Parameters to control sending, receiving and logging of text between master and slave processes
+		' Note: The _initial_ default values are set here, but they may be changed later by command
+			' Variable:		Default:	  Long-Name:		Set by what Options:			  Description:
+
+			' Variable:		Default:  Long-Name:			Set by what Options:			  Description:
+			ESlvIn_Dfl		= False	' EchoSlaveInput,		-i -I	: True, False (default)	- Echo text to console, before sending it to slave stdin
+			LSlvIn_Dfl		= False	' LogSlaveInput,		-s -S*	: True, False (default) - Write text to logfile, before sending it to slave stdin
+			ESlvOut_Dfl		= True	' EchoSlaveOutput,		-o -O	: True (default), False - Echo to console: text coming back from slave stdout
+			LSlvOut_Dfl		= True	' LogSlaveOutput,		-l -L*	: True (default), False - Write to logfile: text coming back from slave stdout
+			LWarn_Dfl		= False	' TCLogWarning,			-w -W*	: True, False (default)	- Warning to console if unable to log due to logfile not open
+			ESlvInMark_Dfl	= "=>"	' EchoSlaveInpMarker,	-f -F**	: "=>" is default		- Mark to identify text echoed to console before sending to slave stdin
+			LSlvInMark_Dfl	= "=>"	' LogSlaveInpMarker,	-g -F**	: "=>" is default		- Mark to identify text written to logfile before sending to slave stdin
+			ESlvOutMark_Dfl	= ">"	' EchoSlaveOutputMarker	-b -B**	: ">" is default		- Mark to identify text echoed to console, received back from slave stdout
+			LSlvOutMark_Dfl	= ">"	' LogSlaveOutputMarker	-c -B**	: ">" is default		- Mark to identify text written to logfile, received back from slave stdout
+			' *  Note: Explicitly given -s or -l imply -w, and in that case explicit -W is required to disable warnings
+			' ** Note: -F combines -fg, -B combines -bc
+			' Other options: -d - apply current options as global defaults (can be given without a cmdline proper)
+			' Error exit if contradictory options entered
+			' Note also: possibility to go into "direct-slave mode", ie.
+			' all input and output goes directly to slave and back, plus an
+			' escape command to bring us back to normal.
+			' logging input or output to file or both can be on while in direct mode,
+			' even with individual input/output markers, different from the ones
+			' seen on the console
+			setDefaultParams ()		' Set parameters to their initial default values
+
+
+		' Next item ...
+
+	end Sub ' Private Sub Class_Initialize ()
+
+	Private Sub Class_Terminate ()
+		' Write pending buffers (?)
+		' Close open file(s)
+	End Sub ' Private Sub Class_Destroy ()
+
+
+	Public Default Function Init(s)
+		Set Init = Me
+	End Function
+
+	' ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----O
+	Private Sub setDefaultParams ()
+		' Set parameters to their _current_ default values (each described above in Class_Initialize)
+		' Note: The initial default values set in Class_Inizialize on class object creation
+		'		may have been changed later by command.
+		'		Ie. _initial_ and _current_ defaults are not necessarily the same
+		ESlvIn			= ESlvIn_Dfl
+		LSlvIn			= LSlvIn_Dfl
+		ESlvOut			= ESlvOut_Dfl
+		LSlvOut			= LSlvOut_Dfl
+		LWarn			= LWarn_Dfl
+		ESlvInMark		= ESlvInMark_Dfl
+		LSlvInMark		= LSlvInMark_Dfl
+		ESlvOutMark		= ESlvOutMark_Dfl
+		LSlvOutMark		= LSlvOutMark_Dfl
+		
+	End Sub
+
+	' ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----O
+	Public Sub sayParams ()
+		' Print out all parameters and their current values
+		%psaywtype ESlvIn		
+		%psaywtype LSlvIn		
+		%psaywtype ESlvOut		
+		%psaywtype LSlvOut		
+		%psaywtype LWarn		
+		%psaywtype ESlvInMark	
+		%psaywtype LSlvInMark	
+		%psaywtype ESlvOutMark	
+		%psaywtype LSlvOutMark	
+	End Sub
+
+
+
+	' ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----O
+	Sub ssend (ByRef cmdline)
+		'! Usage: ssend -E -l <line>
+		'!@param -i EchoSlaveInput = True, (False is default)	- Echo text to console, before sending it to slave stdin
+		'!@param -I EchoSlaveInput = False (default)			- Echo nothing to console, send text silently to slave stdin
+		'! conboseSend console-verbose = verbose output to console on send
+		'! logboseSend logfile-verbose = verbose output to logfile on send
+		'!@param -v - Verbose on (off is default) Echo <line> just before sending it
+		'!@param -l - Logging on (off is default) Echo <line> just before sending it
+
+		' Options: 
+			' Variable:			Default:  Long-Name:			Set by what Options:			  Description:
+			' ESlvIn_Dfl		= False	' EchoSlaveInput,		-i -I	: True, False (default)	- Echo text to console, before sending it to slave stdin
+			' LSlvIn_Dfl		= False	' LogSlaveInput,		-s -S*	: True, False (default) - Write text to logfile, before sending it to slave stdin
+			' ESlvOut_Dfl		= True	' EchoSlaveOutput,		-o -O	: True (default), False - Echo to console: text coming back from slave stdout
+			' LSlvOut_Dfl		= True	' LogSlaveOutput,		-l -L*	: True (default), False - Write to logfile: text coming back from slave stdout
+			' LWarn_Dfl			= False	' TCLogWarning,			-w -W*	: True, False (default)	- Warning to console if unable to log due to logfile not open
+			' ESlvInMark_Dfl	= "=>"	' EchoSlaveInpMarker,	-f -F**	: "=>" is default		- Mark to identify text echoed to console before sending to slave stdin
+			' LSlvInMark_Dfl	= "=>"	' LogSlaveInpMarker,	-g -F**	: "=>" is default		- Mark to identify text written to logfile before sending to slave stdin
+			' ESlvOutMark_Dfl	= ">"	' EchoSlaveOutputMarker	-b -B**	: ">" is default		- Mark to identify text echoed to console, received back from slave stdout
+			' LSlvOutMark_Dfl	= ">"	' LogSlaveOutputMarker	-c -B**	: ">" is default		- Mark to identify text written to logfile, received back from slave stdout
+			' *  Note: Explicitly given -s or -l imply -w, and in that case explicit -W is required to disable warnings
+			' ** Note: -F combines -fg, -B combines -bc
+			' Other options: -d - apply current options as global defaults (can be given without a cmdline proper)
+		' Other options: -d - apply current options as global defaults (can be given without a cmdline proper)
+		' Error exit if contradictory options entered
+		' Note also: possibility to go into "direct-slave mode", ie.
+		' all input and output goes directly to slave and back, plus an
+		' escape command to bring us back to normal
+
+		Dim opts, opt_echo, opt_log, opts_allowed, clashMap, clash
+		opts_allowed	= "diIsSoOlLwWF:f:g:B:b:c:"
+		clashMap	= "iI, sS, oO, lL, wW, Ffg, Bbc"	' Map to detect "clashes" ie. conflicting options
+		opts = ""
+		' setDefaultParams ()		' Set parameters to their initial default values
+
+		. saydbgq @ssend calling getopts with $opts_allowed, cmdline=$cmdline
+		getopts opts_allowed, cmdline, opts
+		. saydbgq @ssend after calling getopts, opts=$opts
+		
+		'opt_echo	=  True: If find_opt("E", opts) then opt_echo	= False
+		'opt_log		= False: If find_opt("l", opts) then opt_log	= True
+
+		' ----+----1----+----2----+----3----+----4----+----5----+----6----+----7----+----8----+----9----+----O
+		' Check for contradicting options
+		clash = opt_sgClashCsv (clashMap, opts)
+		If Not clash = "" Then
+			sayerr "Error (SlaveInterface.ssend): conflicting options. -" _
+			& Mid(clash,1,1) & " conflicts with -" & Mid(clash,2)
+			Exit Sub
+		End If
+
+
+		. saydbgq @ssend End of current code. Showing params:
+		sayparams
+
+
+		Exit Sub
+		' =================== DEAD CODE - UNDER CONSTRUCTION ===========================
+
+
+
+
+		if SlaveExec Is Nothing then
+			sayerr "Error: No slave app to send to."
+			Exit Sub
+		End If
+		if opt_log Then TClog "(ssend) Sending: " & cmdline
+		
+		saydbg "@ssend Sending: " & cmdline
+		SlaveExec.StdIn.WriteLine(cmdline)
+		FoundLine = SlveReadUpto (SlavePrompt)
+		if opt_echo And len(FoundLine) > 0 Then
+			oRx.global = true
+			' oRx.ignorecase = false		' not needed
+			oRx.pattern = VBCrLf&"|\n"
+				TClog SlaveOutFlag & oRx.Replace (FoundLine, VBCrLf & SlaveOutFlag)
+	'			say SlaveOutFlag & oRx.Replace (FoundLine, VBCrLf & SlaveOutFlag)
+		End If
+
+	End Sub ' ssend(cmdline)
+
+End Class ' SlaveInterface
+
+sub tellus ()
+	say version
+end sub
+
+
 }
 

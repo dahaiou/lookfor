@@ -51,7 +51,7 @@ Version  = "0.07p02_"				'_Version
 '		This list highlights some main things, probably not complete:
 '	_h2 About these Release Notes
 '		o Release Notes and comments from earlier versions (0.04-05) removed but
-'		  .many of the same points are commented on here.
+'		  . many of the same points are commented on here.
 '	_h2 Doc Formatting: Handling doc markup included in the code:
 '		o Googled around and settled, at least for now, on Ansgar Wiecher's vbsdoc for this
 '		  and started modifying it:
@@ -65,21 +65,21 @@ Version  = "0.07p02_"				'_Version
 '		  The last two, with the .vbst extension use the same preprocessing 
 '		  that is available to TestCase files.
 '		o Note: all these files can be reimported into a live session by ".import inc1",
-'		  .useful in debugging. Or also reimported individually by ".rtf filename" 
+'		  . useful in debugging. Or also reimported individually by ".rtf filename" 
 '		o In principle we try to avoid resetting global vars on reimport,
-'		  .eg. debug settings are preserved. That said, a few have probably been missed.
+'		  . eg. debug settings are preserved. That said, a few have probably been missed.
 '		o Mechanism implemented to skip parts of code on reimport, eg. for
-'		  .class definitions as classes cannot be redefined
+'		  . class definitions as classes cannot be redefined
 '		o Implementation: A global flag (eg. G_MyClass_defined) is set on initial import 
-'		  .Then REimport can be detected and those blocks of code skipped by setting
-'		  .another global flag: GlobalDiscardNextBlock = True
+'		  . Then REimport can be detected and those blocks of code skipped by setting
+'		  . another global flag: GlobalDiscardNextBlock = True
 '		o TODO: This skipping mechanism needs polishing up a bit
 '		o The main program _can_ be reimported live with ".import lookfor"
-'		  .but many global vars will be clobbered by resetting to initial values
+'		  . but many global vars will be clobbered by resetting to initial values
 '		o TODO: Consider separate file(s) to reinitialise global variables
 '		o TODO: Make the import/include more general and change to .vbsx (extended vbs)
 '		o TODO: Make the main lookfor.vbs fairly bare-bones and most functionality
-'		  .implemented in imported .vbsx modules
+'		  . implemented in imported .vbsx modules
 '		o imported modules can announce their presence and version by setting global vars
 '	:h2 Running TestCases from .vbst files:
 '		o TestCase files are run with ".rtf filename" (the default extension is .vbst )
@@ -88,12 +88,12 @@ Version  = "0.07p02_"				'_Version
 '		o Even though this functionality was the intended main purpose of the lookfor program,
 '		  the progress in this area has been rather modest.
 '		  A lot of time slipped by deciding how to implement logging to files
-'		  .and global housekeeping of test results, and these questions are
-'		  .still up in the air quite a bit.
+'		  . and global housekeeping of test results, and these questions are
+'		  . still up in the air quite a bit.
 '		o output to a logfiles implemented as a simple mechanism for now. Not sure if
 '			it needs to be further developed.
-'		  .still missing bookkeeping, statistics, different levels of logging detail etc.
-'		  .TODO: Considering defining TC classes rather than global variables
+'		  . still missing bookkeeping, statistics, different levels of logging detail etc.
+'		  . TODO: Considering defining TC classes rather than global variables
 '	:h2. Major revamp in progress, of the preprocessing routines used both
 '		in direct command input and during import/include of .vbst files
 '		 o Regexp'es have mostly replaced the pure vbs-string-function approach, and var/expression
@@ -222,6 +222,20 @@ Dim FoundLine '! Last line read back from stdout of Slave process
 Foundline = ""
 Set SlaveShell = Nothing
 Set SlaveExec  = Nothing
+
+'! ====================================================================================================
+'! ====================================================================================================
+'! ====================================================================================================
+'! ====================================================================================================
+Set objShell = CreateObject("Wscript.Shell")
+WScript.Echo objShell.CurrentDirectory
+' objShell.CurrentDirectory = "G:\Dropbox\u\henk\PROG\VStudio\Projects\Blawber\lookfor\"
+objShell.CurrentDirectory = Left (WScript.ScriptFullName, InStrRev(WScript.ScriptFullName, "\"))
+Wscript.Echo objShell.CurrentDirectory
+'! ====================================================================================================
+'! ====================================================================================================
+'! ====================================================================================================
+'! ====================================================================================================
 
 
 ' TODO: Check that slaveprompt has been properly refactored as SlavePrompt, then
@@ -556,17 +570,19 @@ Sub RunVbshLine (line)
 			end if
 			Wscript.Quit 
 
-		ElseIf line = "help" Then
+		ElseIf line = "help" _
+		Or line = "h" _
+		Or line = "?" Then
 			help
-		ElseIf line = "h" Then
-			help
-		ElseIf line = "?" Then
-			help
+			Exit Sub
+		End If
 		
 		'! NOTE: Once Slave app is started you can send commands to it directly
 		'! 		 by simply preceding with ">" or "_" eg. _say "hello"
 		
-		ElseIf Left(line, 1) = ";" Then
+		If Left (line, 1) = "%" Then line = eval (funcsubst (line))
+
+		If Left(line, 1) = ";" Then
 			say "Test output(preprocess_cmdline): " & preprocess_cmdline (mid(line,2))
 		ElseIf Left(line, 1) = "," Then
 			'RunVbshLine preprocess_cmdline (mid(line,2))
@@ -578,16 +594,9 @@ Sub RunVbshLine (line)
 		ElseIf Left(line, 1) = ">" Then
 			ssend (mid(line,2))
 		ElseIf Left(line, 1) = "_" Then
-'		    saydbg "calling ssend with line:"&mid(line,2)
 			ssend (mid(line,2))
-		ElseIf True Then
+		Else
 			myExecuteGlobal line
-		Else ' This Else is never reached	
-			On Error Resume Next
-			Err.Clear
-			ExecuteGlobal line
-			If Err.Number <> 0 Then WScript.StdErr.WriteLine Trim(Err.Description & " (0x" & Hex(Err.Number) & ")")
-			On Error Goto 0
 		End If
 
 End Sub '! Sub RunVbshLine (line)
